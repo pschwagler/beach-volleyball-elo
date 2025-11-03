@@ -1,3 +1,4 @@
+from typing import List
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
@@ -137,6 +138,12 @@ class PlayerStats:
         if self.game_count == 0:
             return 0
         return self.total_point_diff / self.game_count
+    
+    @property
+    def points(self):
+        """Calculate points: +3 for each win, +1 for each loss."""
+        losses = self.game_count - self.win_count
+        return (self.win_count * 3) + (losses * 1)
     
     def record_game_with(self, partner):
         """Record a game played with a partner."""
@@ -415,12 +422,12 @@ def create_ranking_dataframe(tracker):
         tracker: StatsTracker object with all player stats
         
     Returns:
-        DataFrame with rankings
+        DataFrame with rankings (sorted by Points)
     """
-    # Sort players by ELO
+    # Sort players by Points (highest to lowest)
     sorted_players = sorted(
         tracker.players.values(),
-        key=lambda p: p.elo,
+        key=lambda p: p.points,
         reverse=True
     )
     
@@ -433,12 +440,13 @@ def create_ranking_dataframe(tracker):
         
         data.append({
             'Name': player.name,
-            'ELO': int(round(player.elo)),
+            'Points': player.points,
             'Games': player.game_count,
             'Win Rate': win_rate,
             'Wins': player.win_count,
             'Losses': losses,
-            'Avg Pt Diff': avg_pt_diff
+            'Avg Pt Diff': avg_pt_diff,
+            'ELO': int(round(player.elo))
         })
     
     return pd.DataFrame(data)
@@ -619,13 +627,13 @@ def write_elo_deltas_to_matches(sh, match_list):
     header_row = wks.row_values(1)
     
     # Write headers if they don't exist or are different
-    if len(header_row) < team1_col or header_row[team1_col-1] != "Team 1 +/-":
-        wks.update_cell(1, team1_col, "Team 1 +/-")
-    if len(header_row) < team2_col or header_row[team2_col-1] != "Team 2 +/-":
-        wks.update_cell(1, team2_col, "Team 2 +/-")
+    if len(header_row) < team1_col or header_row[team1_col-1] != "Team 1 ELO +/-":
+        wks.update_cell(1, team1_col, "Team 1 ELO +/-")
+    if len(header_row) < team2_col or header_row[team2_col-1] != "Team 2 ELO +/-":
+        wks.update_cell(1, team2_col, "Team 2 ELO +/-")
     
     # Prepare delta data and write in batch
-    delta_values = []
+    delta_values: List[List[float]] = []
     for match in match_list:
         if match.elo_deltas[0] is not None:
             delta_values.append([
@@ -662,12 +670,12 @@ def update_spreadsheet(sheet_name, ranking_df, rank_changes_df, elo_timeline_df,
     except:
         sh = gc.open(sheet_name)
 
-    # Update Ranking worksheet
+    # Update Points worksheet
     try:
-        ranking_wks = sh.worksheet("Ranking")
+        ranking_wks = sh.worksheet("Points")
     except gspread.exceptions.WorksheetNotFound:
         # Create the worksheet if it doesn't exist
-        ranking_wks = sh.add_worksheet(title="Ranking", rows=100, cols=20)
+        ranking_wks = sh.add_worksheet(title="Points", rows=100, cols=20)
     gd.set_with_dataframe(ranking_wks, ranking_df)
     
     # Update Rank Changes worksheet
@@ -703,45 +711,60 @@ def update_spreadsheet(sheet_name, ranking_df, rank_changes_df, elo_timeline_df,
         overall_losses = player_stats.game_count - player_stats.win_count
         combined_data.append({
             'Section': 'OVERALL',
-            'Col2': player_stats.game_count,
-            'Col3': player_stats.win_count,
-            'Col4': overall_losses,
-            'Col5': round(player_stats.win_rate, 3),
-            'Col6': round(player_stats.avg_point_diff, 1)
+            'Col2': player_stats.points,
+            'Col3': player_stats.game_count,
+            'Col4': player_stats.win_count,
+            'Col5': overall_losses,
+            'Col6': round(player_stats.win_rate, 3),
+            'Col7': round(player_stats.avg_point_diff, 1)
         })
         
         # Add spacing
-        combined_data.append({'Section': '', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': ''})
+        combined_data.append({'Section': '', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': '', 'Col7': ''})
         
         # Add partnership section
-        combined_data.append({'Section': 'WITH PARTNERS', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': ''})
+        combined_data.append({'Section': 'WITH PARTNERS', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': '', 'Col7': ''})
         for _, row in partnership_df.iterrows():
+            # Calculate points for this partnership
+            partner_games = row['Games']
+            partner_wins = row['Wins']
+            partner_losses = partner_games - partner_wins
+            partner_points = (partner_wins * 3) + (partner_losses * 1)
+            
             combined_data.append({
                 'Section': row['Partner'],
-                'Col2': row['Games'],
-                'Col3': row['Wins'],
-                'Col4': row['Losses'],
-                'Col5': row['Win Rate'],
-                'Col6': row['Avg Pt Diff']
+                'Col2': partner_points,
+                'Col3': row['Games'],
+                'Col4': row['Wins'],
+                'Col5': row['Losses'],
+                'Col6': row['Win Rate'],
+                'Col7': row['Avg Pt Diff']
             })
         
         # Add spacing
-        combined_data.append({'Section': '', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': ''})
+        combined_data.append({'Section': '', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': '', 'Col7': ''})
         
         # Add opponent section
-        combined_data.append({'Section': 'VS OPPONENTS', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': ''})
+        combined_data.append({'Section': 'VS OPPONENTS', 'Col2': '', 'Col3': '', 'Col4': '', 'Col5': '', 'Col6': '', 'Col7': ''})
         for _, row in opponent_df.iterrows():
+            # Calculate points against this opponent
+            opp_games = row['Games']
+            opp_wins = row['Wins']
+            opp_losses = opp_games - opp_wins
+            opp_points = (opp_wins * 3) + (opp_losses * 1)
+            
             combined_data.append({
                 'Section': row['Opponent'],
-                'Col2': row['Games'],
-                'Col3': row['Wins'],
-                'Col4': row['Losses'],
-                'Col5': row['Win Rate'],
-                'Col6': row['Avg Pt Diff']
+                'Col2': opp_points,
+                'Col3': row['Games'],
+                'Col4': row['Wins'],
+                'Col5': row['Losses'],
+                'Col6': row['Win Rate'],
+                'Col7': row['Avg Pt Diff']
             })
         
         combined_df = pd.DataFrame(combined_data)
-        combined_df.columns = ['Partner/Opponent', 'Games', 'Wins', 'Losses', 'Win Rate', 'Avg Pt Diff']
+        combined_df.columns = ['Partner/Opponent', 'Points', 'Games', 'Wins', 'Losses', 'Win Rate', 'Avg Pt Diff']
         
         # Try to find or create the player's worksheet
         try:

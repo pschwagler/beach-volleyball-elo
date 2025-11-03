@@ -3,11 +3,35 @@ In this very basic elo tracking system google sheets and python are used to crea
 
 ## Dependencies
 - A Google account
-- [Python 3.x](https://www.python.org/downloads/) with the following packages:
+- [Python 3.7+](https://www.python.org/downloads/) with the following packages:
   - [pandas](https://pandas.pydata.org/) for interacting with datatables
   - [gspread](https://github.com/burnash/gspread) for connecting with google sheets
   - [gspread_dataframe](https://pypi.org/project/gspread-dataframe/) for turning google sheets into pandas dataframes
   - [oauth2client](https://github.com/googleapis/oauth2client) for authentication
+
+## Setup
+
+### Install Dependencies
+
+This project includes a `Pipfile` and `requirements.txt` for managing dependencies. You can use either:
+
+**Option 1: Using the virtual environment (already set up)**
+```bash
+source venv/bin/activate  # On macOS/Linux
+python match.py
+```
+
+**Option 2: Using pipenv (requires pipenv installed)**
+```bash
+pipenv install
+pipenv run python match.py
+```
+
+**Option 3: Using pip**
+```bash
+pip install -r requirements.txt
+python match.py
+```
 
 ## Using the elo system
 In this section the basic setup to use this system is explained.
@@ -19,14 +43,25 @@ The **Matches** worksheet will be used to enter the games that were played. Game
 The **Ranking** worksheet will later contain the results of the computation.
 
 ### Setting up API access
-You will need to set up authentication and authorization to read and write in your google sheet. Google explains [how to do this](https://developers.google.com/workspace/guides/auth-overview). You will need to create a service account and grant that account access rights from within google sheets. The scopes used are: 
+You will need to set up authentication and authorization to read and write in your google sheet. For detailed step-by-step instructions, see [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md).
+
+Quick summary:
+1. Create a service account in Google Cloud Console
+2. Download the JSON credentials file as `credentials.json`
+3. Place `credentials.json` in the project directory
+4. Share your Google Sheet with the service account email
+
+The scopes used are: 
 - `https://spreadsheets.google.com/feeds`
 - `https://www.googleapis.com/auth/drive`
 
 ### Run the python script
 Add some matches to the matches worksheet and run the python script.
 
-`> python match.py`
+```bash
+source venv/bin/activate  # Activate virtual environment
+python match.py
+```
 
 The ranking sheet should now be updated with a sorted list of players with a number of stats.
 - ELO: the number used to determine the rank

@@ -1,23 +1,52 @@
-# Virtual environments
-venv/
-env/
-ENV/
-.venv
-
 # Python
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
 
-# Generated files
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Output files
+output/
 rank_changes.csv
-*.csv
+
+# Old vanilla HTML (replaced by React)
+static/
 
 # Credentials
 credentials.json
-*.json
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/node_modules/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
 # IDE
 .vscode/
@@ -26,3 +55,9 @@ credentials.json
 *.swo
 *~
 
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

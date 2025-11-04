@@ -25,9 +25,13 @@ RUN cd frontend && npm run build
 # Copy the rest of the application
 COPY . .
 
+# Copy and make start script executable
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Expose port
 EXPOSE 8000
 
-# Start command - use shell form to allow $PORT variable expansion
-CMD uvicorn api:app --host 0.0.0.0 --port ${PORT:-8000}
+# Start command
+CMD ["/app/start.sh"]
 

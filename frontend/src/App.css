@@ -463,15 +463,201 @@ tbody tr:last-child td {
   color: var(--gray-600);
 }
 
-/* Player Details Modal - Retro Card Style */
+/* Player Details Modal - Retro Card Style with Slide Animation */
 .player-details {
-  margin-top: 32px;
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  max-width: 90vw;
   padding: 28px;
   background: white;
-  border-radius: 16px;
-  border: 3px solid var(--sunset-orange);
-  box-shadow: 8px 8px 0px var(--sand);
+  border-left: 3px solid var(--sunset-orange);
+  box-shadow: -8px 0px 24px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  z-index: 1000;
+  transform: translateX(100%);
+  transition: transform 0.3s ease-in-out;
+}
+
+.player-details.open {
+  transform: translateX(0);
+}
+
+/* Player Details Side Tab */
+.player-details-side-tab {
+  position: fixed;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  z-index: 998;
+  background: var(--ocean-blue);
+  color: white;
+  border: 3px solid var(--deep-ocean);
+  border-right: none;
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+  padding: 16px 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: -4px 4px 8px rgba(0, 0, 0, 0.15);
+  transition: all 0.2s ease;
+  writing-mode: vertical-rl;
+}
+
+.player-details-side-tab:hover {
+  background: var(--teal);
+  transform: translateY(-50%) translateX(-4px);
+  box-shadow: -6px 6px 12px rgba(0, 0, 0, 0.2);
+}
+
+.player-details-side-tab:active {
+  transform: translateY(-50%) translateX(-2px);
+  box-shadow: -2px 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Backdrop overlay */
+.player-details-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+  pointer-events: none;
+}
+
+.player-details-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Player Selector (replaces h2 in player details) */
+.player-selector-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--sunset-orange);
+}
+
+.player-selector-wrapper {
   position: relative;
+  flex: 0 1 auto;
+  min-width: 300px;
+}
+
+.player-selector-current {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px 16px;
+  background: var(--cream);
+  border: 2px solid var(--sunset-orange);
+  border-radius: 10px;
+  transition: all 0.2s;
+  box-shadow: 3px 3px 0px var(--sand);
+}
+
+.player-selector-current:hover {
+  background: var(--sand);
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0px var(--warm-brown);
+}
+
+.player-selector-name {
+  font-size: 2em;
+  font-weight: 800;
+  color: var(--sunset-orange);
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.1);
+  font-family: 'Courier New', Courier, monospace;
+}
+
+.player-selector-current svg {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  color: var(--ocean-blue);
+}
+
+.player-selector-current svg.rotate-180 {
+  transform: rotate(180deg);
+}
+
+.player-selector-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 3px solid var(--ocean-blue);
+  border-radius: 10px;
+  box-shadow: 6px 6px 0px var(--sand);
+  z-index: 1001;
+  max-height: 400px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-selector-search {
+  width: 100%;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 2px solid var(--sand);
+  font-size: 1em;
+  font-family: inherit;
+  background: var(--cream);
+  color: var(--gray-900);
+}
+
+.player-selector-search:focus {
+  outline: none;
+  background: white;
+  border-bottom-color: var(--ocean-blue);
+}
+
+.player-selector-options {
+  overflow-y: auto;
+  max-height: 350px;
+}
+
+.player-selector-option {
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid var(--sand);
+  color: var(--gray-700);
+  font-weight: 600;
+}
+
+.player-selector-option:hover {
+  background: rgba(255, 107, 53, 0.1);
+  color: var(--sunset-orange);
+}
+
+.player-selector-option.selected {
+  background: var(--cream);
+  color: var(--sunset-orange);
+  font-weight: 700;
+}
+
+.player-selector-option.disabled {
+  cursor: not-allowed;
+  color: var(--gray-600);
+  opacity: 0.6;
+}
+
+.player-selector-option.disabled:hover {
+  background: transparent;
+  color: var(--gray-600);
 }
 
 .player-details h2 {
@@ -501,26 +687,26 @@ tbody tr:last-child td {
 
 .close-btn {
   float: right;
-  background: var(--sand);
-  color: var(--warm-brown);
-  border: 2px solid var(--warm-brown);
+  background: var(--ocean-blue);
+  color: white;
+  border: 2px solid var(--deep-ocean);
   padding: 8px 16px;
   font-size: 0.875em;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  box-shadow: 3px 3px 0px var(--warm-brown);
+  box-shadow: 3px 3px 0px var(--deep-ocean);
 }
 
 .close-btn:hover {
-  background: var(--gray-300);
+  background: var(--teal);
   transform: translate(-1px, -1px);
-  box-shadow: 4px 4px 0px var(--warm-brown);
+  box-shadow: 4px 4px 0px var(--deep-ocean);
 }
 
 .close-btn:active {
   transform: translate(1px, 1px);
-  box-shadow: 2px 2px 0px var(--warm-brown);
+  box-shadow: 2px 2px 0px var(--deep-ocean);
 }
 
 .section-header {
@@ -605,6 +791,8 @@ tbody tr:last-child td {
 
   .player-details {
     padding: 20px 16px;
+    width: 100vw;
+    max-width: 100vw;
   }
 
   .player-details h2 {
@@ -654,9 +842,6 @@ tbody tr:last-child td {
   animation: fadeIn 0.4s ease-out;
 }
 
-.player-details {
-  animation: fadeIn 0.4s ease-out;
-}
 
 
 /* Custom scrollbar for retro vibe */

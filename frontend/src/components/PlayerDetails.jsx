@@ -1,10 +1,39 @@
-import { X, User, History, BarChart3 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, User, History, BarChart3, ChevronDown } from 'lucide-react';
 import { Button } from './UI';
 
-export default function PlayerDetails({ playerName, stats, matchHistory, onClose }) {
+export default function PlayerDetails({ playerName, stats, matchHistory, onClose, isOpen, allPlayers, onPlayerChange }) {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+  // Reset search when player changes
+  useEffect(() => {
+    setSearchTerm('');
+    setIsDropdownOpen(false);
+  }, [playerName]);
+
   if (!stats || stats.length === 0) {
     return null;
   }
+
+  const filteredPlayers = allPlayers
+    ? allPlayers
+        .filter(player => player.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b))
+    : [];
+
+  // Debug logging
+  console.log('PlayerDetails - allPlayers:', allPlayers);
+  console.log('PlayerDetails - filteredPlayers:', filteredPlayers);
+  console.log('PlayerDetails - searchTerm:', searchTerm);
+
+  const handlePlayerSelect = (player) => {
+    if (onPlayerChange) {
+      onPlayerChange(player);
+    }
+    setSearchTerm('');
+    setIsDropdownOpen(false);
+  };
 
   const formatPtDiff = (value) => {
     if (value === '' || value === null || value === undefined) return '';
@@ -22,12 +51,54 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
   };
 
   return (
-    <div className="player-details">
+    <div className={`player-details ${isOpen ? 'open' : ''}`}>
       <Button variant="close" onClick={onClose}>
         <X size={16} />
         Close
       </Button>
-      <h2><User size={28} />{playerName}</h2>
+      
+      {/* Player Selector */}
+      <div className="player-selector-container">
+        <User size={28} />
+        <div className="player-selector-wrapper">
+          <div className="player-selector-current" onClick={() => setIsDropdownOpen(!isDropdownOpen)}>
+            <span className="player-selector-name">{playerName}</span>
+            <ChevronDown size={20} className={isDropdownOpen ? 'rotate-180' : ''} />
+          </div>
+          
+          {isDropdownOpen && (
+            <div className="player-selector-dropdown">
+              <input
+                type="text"
+                className="player-selector-search"
+                placeholder="Search players..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                autoFocus
+              />
+              <div className="player-selector-options">
+                {!allPlayers ? (
+                  <div className="player-selector-option disabled">Loading players...</div>
+                ) : filteredPlayers.length > 0 ? (
+                  filteredPlayers.map((player) => (
+                    <div
+                      key={player}
+                      className={`player-selector-option ${player === playerName ? 'selected' : ''}`}
+                      onClick={() => handlePlayerSelect(player)}
+                    >
+                      {player}
+                    </div>
+                  ))
+                ) : (
+                  <div className="player-selector-option disabled">
+                    {searchTerm ? 'No players found' : 'No players available'}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
       
       {/* Match History Section */}
       {matchHistory && matchHistory.length > 0 && (

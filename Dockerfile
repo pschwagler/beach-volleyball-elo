@@ -26,9 +26,9 @@ RUN cd frontend && npm run build
 # Copy the rest of the application
 COPY . .
 
-# Expose port
+# Expose port (Railway will override with $PORT env var)
 EXPOSE 8000
 
-# Start command - use shell form to allow $PORT variable expansion
-CMD uvicorn api:app --host 0.0.0.0 --port 8000
+# Start command - use sh -c to properly expand $PORT at runtime
+CMD ["sh", "-c", "uvicorn api:app --host 0.0.0.0 --port ${PORT:-8000}"]
 

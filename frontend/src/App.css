@@ -350,6 +350,119 @@ tbody tr:last-child td {
   background: var(--danger-light) !important;
 }
 
+/* Match Cards Layout */
+.matches-container {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+
+.match-date-group {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.match-date-header {
+  color: var(--sunset-orange);
+  font-size: 1.25em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--sand);
+}
+
+.match-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.match-card {
+  background: white;
+  border: 2px solid var(--gray-300);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+  transition: all 0.2s;
+}
+
+.match-card:hover {
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+}
+
+.match-card-header {
+  background: var(--gray-100);
+  padding: 8px 12px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  border-bottom: 1px solid var(--gray-300);
+}
+
+.rating-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75em;
+  color: var(--gray-600);
+  font-weight: 600;
+  cursor: help;
+}
+
+.match-team {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--gray-200);
+}
+
+.match-team:last-child {
+  border-bottom: none;
+}
+
+.match-team.winner {
+  background: var(--success-light);
+}
+
+.match-team.loser {
+  background: white;
+}
+
+.team-players {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.match-team.winner .player-name {
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.match-team.loser .player-name {
+  font-weight: 400;
+  color: var(--gray-600);
+}
+
+.team-score {
+  font-size: 1.75em;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: right;
+}
+
+.winner-score {
+  color: var(--sunset-orange);
+}
+
+.loser-score {
+  color: var(--gray-600);
+}
+
 /* Player Details Modal - Retro Card Style */
 .player-details {
   margin-top: 32px;
@@ -545,16 +658,6 @@ tbody tr:last-child td {
   animation: fadeIn 0.4s ease-out;
 }
 
-/* Retro accents */
-h1::before {
-  content: '🌴';
-  margin-right: 12px;
-}
-
-h1::after {
-  content: '🌊';
-  margin-left: 12px;
-}
 
 /* Custom scrollbar for retro vibe */
 ::-webkit-scrollbar {
@@ -575,4 +678,44 @@ h1::after {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--teal);
+}
+
+/* React-based Tooltips */
+.tooltip {
+  background: rgba(33, 33, 33, 0.95);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: normal;
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  animation: tooltipFadeIn 0.15s ease-out;
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Additional utility classes for inline style removal */
+.winner-row {
+  background: var(--success-light) !important;
+}
+
+.loser-row {
+  background: var(--danger-light) !important;
+}
+
+.spacer-row {
+  height: 10px;
+}
+
+.no-underline {
+  text-decoration: none;
 }

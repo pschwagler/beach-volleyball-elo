@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import { Button } from './UI';
 
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 
@@ -14,8 +15,7 @@ export default function ControlPanel({ onRecalculate }) {
 
   return (
     <div className="controls">
-      <button
-        id="recalculate-btn"
+      <Button
         onClick={handleRecalculate}
         disabled={isCalculating}
       >
@@ -30,13 +30,13 @@ export default function ControlPanel({ onRecalculate }) {
             Recalculate Stats
           </>
         )}
-      </button>
+      </Button>
       
-      <a href={GOOGLE_SHEETS_URL} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
-        <button type="button" className="btn-success">
+      <a href={GOOGLE_SHEETS_URL} target="_blank" rel="noopener noreferrer" className="no-underline">
+        <Button variant="success">
           <ExternalLink size={18} />
           View Input Data
-        </button>
+        </Button>
       </a>
     </div>
   );

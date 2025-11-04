@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Trophy, Calendar } from 'lucide-react';
 import './App.css';
 import ControlPanel from './components/ControlPanel';
 import RankingsTable from './components/RankingsTable';
 import MatchesTable from './components/MatchesTable';
 import PlayerDetails from './components/PlayerDetails';
+import { Alert, Tabs } from './components/UI';
 import { calculateStats, getRankings, getPlayerStats, getMatches, getPlayerMatchHistory } from './services/api';
 
 function App() {
@@ -16,6 +16,10 @@ function App() {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
   const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
+
+  // Check if URL contains ?skyball query parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  const showControls = urlParams.has('skyball');
 
   // Load matches on mount (since it's the default tab)
   useEffect(() => {
@@ -151,31 +155,13 @@ function App() {
         </div>
       </div>
 
-      <ControlPanel onRecalculate={handleRecalculate} />
+      {showControls && <ControlPanel onRecalculate={handleRecalculate} />}
 
-      {message && (
-        <div className={message.type}>
-          {message.text}
-        </div>
-      )}
+      <Alert type={message?.type}>
+        {message?.text}
+      </Alert>
 
-      {/* Tabs */}
-      <div className="tabs">
-        <button 
-          className={`tab ${activeTab === 'matches' ? 'active' : ''}`}
-          onClick={() => handleTabChange('matches')}
-        >
-          <Calendar size={18} />
-          Matches
-        </button>
-        <button 
-          className={`tab ${activeTab === 'rankings' ? 'active' : ''}`}
-          onClick={() => handleTabChange('rankings')}
-        >
-          <Trophy size={18} />
-          Rankings
-        </button>
-      </div>
+      <Tabs activeTab={activeTab} onTabChange={handleTabChange} />
 
       {/* Content Area */}
       <div className="content-area">

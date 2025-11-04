@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Tooltip } from './UI';
 
 export default function RankingsTable({ rankings, onPlayerClick }) {
   const [sortConfig, setSortConfig] = useState({ column: 'Points', ascending: false });
@@ -46,14 +47,46 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
     <table>
       <thead>
         <tr>
-          <th onClick={() => handleSort('Name')}>Name{getSortArrow('Name')}</th>
-          <th onClick={() => handleSort('Points')}>Points{getSortArrow('Points')}</th>
-          <th onClick={() => handleSort('Games')}>Games{getSortArrow('Games')}</th>
-          <th onClick={() => handleSort('Win Rate')}>Win Rate{getSortArrow('Win Rate')}</th>
-          <th onClick={() => handleSort('Wins')}>Wins{getSortArrow('Wins')}</th>
-          <th onClick={() => handleSort('Losses')}>Losses{getSortArrow('Losses')}</th>
-          <th onClick={() => handleSort('Avg Pt Diff')}>Avg Pt Diff{getSortArrow('Avg Pt Diff')}</th>
-          <th onClick={() => handleSort('ELO')}>Rating{getSortArrow('ELO')}</th>
+          <th onClick={() => handleSort('Name')}>
+            <Tooltip text="Player's name">
+              Name{getSortArrow('Name')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Points')}>
+            <Tooltip text="Season points: +3 for each win, +1 for each loss">
+              Points{getSortArrow('Points')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Games')}>
+            <Tooltip text="Total number of games played this season">
+              Games{getSortArrow('Games')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Win Rate')}>
+            <Tooltip text="Percentage of games won">
+              Win Rate{getSortArrow('Win Rate')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Wins')}>
+            <Tooltip text="Total number of wins">
+              Wins{getSortArrow('Wins')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Losses')}>
+            <Tooltip text="Total number of losses">
+              Losses{getSortArrow('Losses')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('Avg Pt Diff')}>
+            <Tooltip text="Average point differential per game">
+              Avg Pt Diff{getSortArrow('Avg Pt Diff')}
+            </Tooltip>
+          </th>
+          <th onClick={() => handleSort('ELO')}>
+            <Tooltip text="Current skill rating (higher is better)">
+              Rating{getSortArrow('ELO')}
+            </Tooltip>
+          </th>
         </tr>
       </thead>
       <tbody>

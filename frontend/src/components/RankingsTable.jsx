@@ -56,7 +56,7 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
     <table>
       <thead>
         <tr>
-          <th onClick={() => handleSort('Name')}>
+          <th className="sticky-col" onClick={() => handleSort('Name')}>
             <Tooltip text="Player's name">
               Name{getSortArrow('Name')}
             </Tooltip>
@@ -101,7 +101,7 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
       <tbody>
         {sortedRankings.map((player, idx) => (
           <tr key={idx}>
-            <td>
+            <td className="sticky-col">
               <span className="player-name" onClick={() => onPlayerClick(player.Name)}>
                 {player.Name}
                 {firstPlacePlayer && player.Name === firstPlacePlayer.Name && (

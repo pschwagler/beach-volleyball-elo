@@ -18,12 +18,20 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
   };
 
   const sortedRankings = [...rankings].sort((a, b) => {
+    // Primary sort by selected column
     const aVal = a[sortConfig.column];
     const bVal = b[sortConfig.column];
     
-    if (aVal === bVal) return 0;
-    const comparison = aVal > bVal ? 1 : -1;
-    return sortConfig.ascending ? comparison : -comparison;
+    const primaryComparison = aVal > bVal ? 1 : -1;
+    const primaryResult = sortConfig.ascending ? primaryComparison : -primaryComparison;
+    
+    if (aVal !== bVal) return primaryResult;
+    
+    // Tiebreakers: Points → Avg Pt Diff → Win Rate → ELO
+    if (a.Points !== b.Points) return b.Points - a.Points;
+    if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
+    if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
+    return b.ELO - a.ELO;
   });
 
   const formatPtDiff = (value) => {

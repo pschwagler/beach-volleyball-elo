@@ -385,7 +385,7 @@ def loadMatches(filename):
     data = wks.get_all_values()
     headers = data.pop(0)
     df = pd.DataFrame(data, columns=headers)
-    df.columns = ['DATE', 'T1P1', 'T1P2', 'T2P1', 'T2P2', 'T1SCORE', 'T2SCORE', 'T1ADJ', 'T2ADJ']
+    df.columns = ['DATE', 'T1P1', 'T1P2', 'T2P1', 'T2P2', 'T1SCORE', 'T2SCORE']
 
     match_list = []
     for _, row in df.iterrows():

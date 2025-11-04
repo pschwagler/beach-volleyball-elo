@@ -34,9 +34,9 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
             <th>Partner/Opponent</th>
             <th>Points</th>
             <th>Games</th>
+            <th>Win Rate</th>
             <th>Wins</th>
             <th>Losses</th>
-            <th>Win Rate</th>
             <th>Avg Pt Diff</th>
           </tr>
         </thead>
@@ -62,9 +62,9 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
                   <td><strong>{row['Partner/Opponent']}</strong></td>
                   <td>{row['Points']}</td>
                   <td>{row['Games']}</td>
+                  <td>{formatWinRate(row['Win Rate'])}</td>
                   <td>{row['Wins']}</td>
                   <td>{row['Losses']}</td>
-                  <td>{formatWinRate(row['Win Rate'])}</td>
                   <td>{formatPtDiff(row['Avg Pt Diff'])}</td>
                 </tr>
               );

@@ -72,7 +72,10 @@ async def root():
 
 # Mount static assets from React build
 try:
+    # Mount assets directory
     app.mount("/assets", StaticFiles(directory="frontend/dist/assets"), name="assets")
+    # Mount root static files (images, favicon, etc.) 
+    # This needs to be added AFTER other routes to not override API endpoints
 except:
     # Assets directory might not exist yet (before build)
     pass
@@ -265,6 +268,23 @@ async def health_check():
         "data_available": files_exist,
         "message": "API is running" if files_exist else "No data yet. Run /api/calculate to generate statistics."
     }
+
+
+# Serve static files (images, etc.) from dist - must be after all API routes
+@app.get("/{file_path:path}")
+async def serve_static_files(file_path: str):
+    """Serve static files from frontend/dist directory."""
+    # Don't serve API routes through this catch-all
+    if file_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not found")
+    
+    # Try to serve the requested file
+    full_path = Path(f"frontend/dist/{file_path}")
+    if full_path.is_file():
+        return FileResponse(full_path)
+    
+    # If file not found, serve index.html (for React Router)
+    return FileResponse("frontend/dist/index.html")
 
 
 if __name__ == "__main__":

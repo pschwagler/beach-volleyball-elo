@@ -8,7 +8,7 @@ import PlayerDetails from './components/PlayerDetails';
 import { calculateStats, getRankings, getPlayerStats, getMatches, getPlayerMatchHistory } from './services/api';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('rankings'); // 'rankings' or 'matches'
+  const [activeTab, setActiveTab] = useState('matches'); // 'matches' or 'rankings'
   const [rankings, setRankings] = useState([]);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,9 +17,9 @@ function App() {
   const [playerStats, setPlayerStats] = useState(null);
   const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
 
-  // Load rankings on mount
+  // Load matches on mount (since it's the default tab)
   useEffect(() => {
-    loadRankings();
+    loadMatches();
   }, []);
 
   const loadRankings = async () => {
@@ -123,15 +123,33 @@ function App() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    if (tab === 'matches' && matches.length === 0) {
-      loadMatches();
+    if (tab === 'rankings' && rankings.length === 0) {
+      loadRankings();
     }
   };
 
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const images = [
+    '/beach-kings.png',
+    '/side-out-movie-cover.png',
+    '/top-gun-vball.png'
+  ];
+
+  // Rotate background image every 10 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentImageIndex((prev) => (prev + 1) % images.length);
+    }, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="container">
-      <h1>Beach Volleyball Rankings</h1>
-      <p className="subtitle">Points-based rankings with ratings</p>
+      <div className="hero-header" style={{ backgroundImage: `url(${images[currentImageIndex]})` }}>
+        <div className="hero-overlay">
+          <h1>QBK Beach Volleyball Standings</h1>
+        </div>
+      </div>
 
       <ControlPanel onRecalculate={handleRecalculate} />
 
@@ -144,39 +162,39 @@ function App() {
       {/* Tabs */}
       <div className="tabs">
         <button 
-          className={`tab ${activeTab === 'rankings' ? 'active' : ''}`}
-          onClick={() => handleTabChange('rankings')}
-        >
-          <Trophy size={18} />
-          Rankings
-        </button>
-        <button 
           className={`tab ${activeTab === 'matches' ? 'active' : ''}`}
           onClick={() => handleTabChange('matches')}
         >
           <Calendar size={18} />
           Matches
         </button>
+        <button 
+          className={`tab ${activeTab === 'rankings' ? 'active' : ''}`}
+          onClick={() => handleTabChange('rankings')}
+        >
+          <Trophy size={18} />
+          Rankings
+        </button>
       </div>
 
       {/* Content Area */}
       <div className="content-area">
-        {activeTab === 'rankings' && (
-          <div>
-            {loading ? (
-              <div className="loading">Loading rankings...</div>
-            ) : (
-              <RankingsTable rankings={rankings} onPlayerClick={handlePlayerClick} />
-            )}
-          </div>
-        )}
-
         {activeTab === 'matches' && (
           <div>
             {loading ? (
               <div className="loading">Loading matches...</div>
             ) : (
               <MatchesTable matches={matches} onPlayerClick={handlePlayerClick} />
+            )}
+          </div>
+        )}
+
+        {activeTab === 'rankings' && (
+          <div>
+            {loading ? (
+              <div className="loading">Loading rankings...</div>
+            ) : (
+              <RankingsTable rankings={rankings} onPlayerClick={handlePlayerClick} />
             )}
           </div>
         )}

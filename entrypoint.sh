@@ -1,13 +1,17 @@
 #!/bin/sh
-echo "=== DEBUG INFO ==="
-echo "PORT variable: '${PORT}'"
-echo "All environment variables:"
-env | grep -i port || echo "No PORT variables found"
-echo "=================="
+set -e
 
-# Use PORT if set, otherwise default to 8000
-PORT=${PORT:-8000}
-echo "Using port: $PORT"
+echo "==================================="
+echo "ENTRYPOINT SCRIPT IS RUNNING"
+echo "Current directory: $(pwd)"
+echo "Files in current directory:"
+ls -la
+echo "Python version:"
+python --version
+echo "Uvicorn location:"
+which uvicorn
+echo "==================================="
 
-exec uvicorn api:app --host 0.0.0.0 --port "$PORT"
+echo "Starting uvicorn on port 8000..."
+uvicorn api:app --host 0.0.0.0 --port 8000
 

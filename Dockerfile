@@ -28,9 +28,11 @@ COPY . .
 
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh && \
+    echo "Entrypoint script installed at /app/entrypoint.sh" && \
+    cat /app/entrypoint.sh
 
-# Expose port (Railway will override with $PORT env var)
+# Expose port
 EXPOSE 8000
 
 # Use entrypoint script

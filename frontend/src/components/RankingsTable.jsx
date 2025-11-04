@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Crown } from 'lucide-react';
 import { Tooltip } from './UI';
 
 export default function RankingsTable({ rankings, onPlayerClick }) {
@@ -34,6 +35,14 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
     if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
     return b.ELO - a.ELO;
   });
+
+  // Find first place player by points with tie-breakers
+  const firstPlacePlayer = rankings.length > 0 ? [...rankings].sort((a, b) => {
+    if (a.Points !== b.Points) return b.Points - a.Points;
+    if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
+    if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
+    return b.ELO - a.ELO;
+  })[0] : null;
 
   const formatPtDiff = (value) => {
     return value >= 0 ? `+${value}` : `${value}`;
@@ -95,6 +104,9 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
             <td>
               <span className="player-name" onClick={() => onPlayerClick(player.Name)}>
                 {player.Name}
+                {firstPlacePlayer && player.Name === firstPlacePlayer.Name && (
+                  <Crown size={16} style={{ marginLeft: '8px', color: '#FFD700', verticalAlign: 'middle' }} />
+                )}
               </span>
             </td>
             <td>{player.Points}</td>

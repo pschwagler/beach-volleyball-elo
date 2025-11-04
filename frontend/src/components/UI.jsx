@@ -114,7 +114,7 @@ export function Tabs({ activeTab, onTabChange }) {
         onClick={() => onTabChange('rankings')}
       >
         <Trophy size={18} />
-        Rankings
+        Players
       </Button>
     </div>
   );

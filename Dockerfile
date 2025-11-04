@@ -26,10 +26,14 @@ RUN cd frontend && npm run build
 # Copy backend code
 COPY backend ./backend
 
-# Copy entrypoint script and credentials (if exists)
+# Copy entrypoint script
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
-COPY credentials.json* ./ || true
+
+# Conditionally copy credentials file if it exists (for local development)
+# In production (Railway), credentials should be provided via CREDENTIALS_JSON env var
+# Using bracket notation makes the COPY optional - won't fail if file doesn't exist
+COPY credentials.jso[n] ./
 
 # Expose port
 EXPOSE 8000

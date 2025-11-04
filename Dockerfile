@@ -23,12 +23,13 @@ RUN cd frontend && npm install
 COPY frontend ./frontend
 RUN cd frontend && npm run build
 
-# Copy the rest of the application
-COPY . .
+# Copy backend code
+COPY backend ./backend
 
-# Copy entrypoint script and make it executable
+# Copy entrypoint script and credentials (if exists)
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
+COPY credentials.json* ./ || true
 
 # Expose port
 EXPOSE 8000

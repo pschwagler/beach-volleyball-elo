@@ -126,7 +126,7 @@ function App() {
       <div className="container">
         <div className="hero-header" style={{ backgroundImage: `url(${images[currentImageIndex]})` }}>
           <div className="hero-overlay">
-            <h1>QBK Beach Volleyball Standings</h1>
+            <h1 className="hero-title">QBK Beach Volleyball Standings</h1>
           </div>
         </div>
 

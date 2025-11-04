@@ -354,7 +354,7 @@ tbody .sticky-col {
 }
 
 tbody tr:hover .sticky-col {
-  background: rgba(255, 107, 53, 0.05);
+  background: rgb(255, 248, 245);
 }
 
 .player-name {
@@ -814,6 +814,10 @@ tbody tr:hover .sticky-col {
   .hero-header {
     height: 180px;
     border-radius: 10px 10px 0 0;
+  }
+
+  h1.hero-title {
+    padding: 0 10%;
   }
 
   h1 {

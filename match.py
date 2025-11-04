@@ -4,6 +4,8 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread_dataframe as gd
 import math
+import os
+import json
 
 #####################################################
 # CONFIG STUFF                                      #
@@ -19,8 +21,16 @@ google_sheets_name = '1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA'#
 scope = ['https://spreadsheets.google.com/feeds',
          'https://www.googleapis.com/auth/drive']
 
-credentials = ServiceAccountCredentials.from_json_keyfile_name(
-         credentials_file, scope)
+# Try to load credentials from environment variable (for Railway)
+# Fall back to file (for local development)
+credentials_json = os.getenv('CREDENTIALS_JSON')
+if credentials_json:
+    credentials_dict = json.loads(credentials_json)
+    credentials = ServiceAccountCredentials.from_json_keyfile_dict(
+        credentials_dict, scope)
+else:
+    credentials = ServiceAccountCredentials.from_json_keyfile_name(
+        credentials_file, scope)
 
 K = 40
 INITIAL_ELO = 1200

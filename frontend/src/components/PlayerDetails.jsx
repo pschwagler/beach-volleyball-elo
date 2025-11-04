@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, User, History, BarChart3, ChevronDown } from 'lucide-react';
+import { X, User, History, BarChart3, ChevronDown, Trophy, Target, TrendingUp } from 'lucide-react';
 import { Button } from './UI';
 
 export default function PlayerDetails({ playerName, stats, matchHistory, onClose, isOpen, allPlayers, onPlayerChange }) {
@@ -12,9 +12,12 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
     setIsDropdownOpen(false);
   }, [playerName]);
 
-  if (!stats || stats.length === 0) {
+  if (!stats || !stats.stats || stats.stats.length === 0) {
     return null;
   }
+
+  const overview = stats.overview || {};
+  const playerStats = stats.stats || [];
 
   const filteredPlayers = allPlayers
     ? allPlayers
@@ -22,10 +25,6 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
         .sort((a, b) => a.localeCompare(b))
     : [];
 
-  // Debug logging
-  console.log('PlayerDetails - allPlayers:', allPlayers);
-  console.log('PlayerDetails - filteredPlayers:', filteredPlayers);
-  console.log('PlayerDetails - searchTerm:', searchTerm);
 
   const handlePlayerSelect = (player) => {
     if (onPlayerChange) {
@@ -43,6 +42,20 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
   const formatRatingChange = (value) => {
     if (value === '' || value === null || value === undefined) return '';
     return value >= 0 ? `+${value}` : `${value}`;
+  };
+
+  const formatNewRating = (eloAfter, eloChange) => {
+    if (eloAfter === '' || eloAfter === null || eloAfter === undefined) return null;
+    if (eloChange === '' || eloChange === null || eloChange === undefined) {
+      return <span>{Math.round(eloAfter)}</span>;
+    }
+    const changeStr = eloChange >= 0 ? `+${Math.round(eloChange)}` : `${Math.round(eloChange)}`;
+    const className = eloChange >= 0 ? 'rating-positive' : 'rating-negative';
+    return (
+      <span>
+        {Math.round(eloAfter)} <span className={className}>({changeStr})</span>
+      </span>
+    );
   };
 
   const formatWinRate = (value) => {
@@ -99,6 +112,33 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
           )}
         </div>
       </div>
+
+      {/* Player Overview */}
+      {overview.ranking && (
+        <div className="player-overview">
+          <div className="overview-stat">
+            <Trophy size={24} className="overview-icon" />
+            <div className="overview-content">
+              <div className="overview-label">Ranking</div>
+              <div className="overview-value">#{overview.ranking}</div>
+            </div>
+          </div>
+          <div className="overview-stat">
+            <Target size={24} className="overview-icon" />
+            <div className="overview-content">
+              <div className="overview-label">Points</div>
+              <div className="overview-value">{overview.points}</div>
+            </div>
+          </div>
+          <div className="overview-stat">
+            <TrendingUp size={24} className="overview-icon" />
+            <div className="overview-content">
+              <div className="overview-label">Rating</div>
+              <div className="overview-value">{overview.rating}</div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Match History Section */}
       {matchHistory && matchHistory.length > 0 && (
@@ -109,31 +149,44 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
               <tr>
                 <th>Date</th>
                 <th>Partner</th>
-                <th>Opponent 1</th>
-                <th>Opponent 2</th>
+                <th>Opponents</th>
                 <th>Result</th>
                 <th>Score</th>
-                <th>Rating Change</th>
+                <th>New Rating</th>
               </tr>
             </thead>
             <tbody>
-              {matchHistory.map((match, idx) => (
-                <tr 
-                  key={idx} 
-                  className={
-                    match.Result === 'W' ? 'winner-row' : 
-                    match.Result === 'L' ? 'loser-row' : ''
-                  }
-                >
-                  <td>{match.Date}</td>
-                  <td>{match.Partner}</td>
-                  <td>{match['Opponent 1']}</td>
-                  <td>{match['Opponent 2']}</td>
-                  <td><strong>{match.Result}</strong></td>
-                  <td>{match.Score}</td>
-                  <td>{formatRatingChange(match['ELO Change'])}</td>
-                </tr>
-              ))}
+              {matchHistory.map((match, idx) => {
+                const ratingDisplay = formatNewRating(match['ELO After'], match['ELO Change']);
+                return (
+                  <tr key={idx}>
+                    <td>{match.Date}</td>
+                    <td>
+                      <span className="player-name" onClick={() => onPlayerChange(match.Partner)}>
+                        {match.Partner}
+                      </span>
+                    </td>
+                    <td>
+                      <span className="player-name" onClick={() => onPlayerChange(match['Opponent 1'])}>
+                        {match['Opponent 1']}
+                      </span>
+                      {' / '}
+                      <span className="player-name" onClick={() => onPlayerChange(match['Opponent 2'])}>
+                        {match['Opponent 2']}
+                      </span>
+                    </td>
+                    <td>
+                      <strong className={match.Result === 'W' ? 'result-win' : 'result-loss'}>
+                        {match.Result}
+                      </strong>
+                    </td>
+                    <td>{match.Score}</td>
+                    <td>
+                      {ratingDisplay}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </>
@@ -153,7 +206,7 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
           </tr>
         </thead>
         <tbody>
-          {stats.map((row, idx) => {
+          {playerStats.map((row, idx) => {
             const isSectionHeader = 
               row['Partner/Opponent'] === 'WITH PARTNERS' || 
               row['Partner/Opponent'] === 'VS OPPONENTS';
@@ -171,7 +224,17 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
             } else {
               return (
                 <tr key={idx} className={isOverall ? 'section-header' : ''}>
-                  <td><strong>{row['Partner/Opponent']}</strong></td>
+                  <td>
+                    {isOverall ? (
+                      <strong>{row['Partner/Opponent']}</strong>
+                    ) : (
+                      <strong>
+                        <span className="player-name" onClick={() => onPlayerChange(row['Partner/Opponent'])}>
+                          {row['Partner/Opponent']}
+                        </span>
+                      </strong>
+                    )}
+                  </td>
                   <td>{row['Wins']}</td>
                   <td>{row['Losses']}</td>
                   <td>{formatWinRate(row['Win Rate'])}</td>

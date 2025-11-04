@@ -6,7 +6,6 @@ Handles all CRUD operations for the ELO system.
 from typing import List, Dict, Optional
 from backend.database import db
 
-
 def flush_and_repopulate(tracker, match_list):
     """
     Flush all data and repopulate from calculated statistics.
@@ -22,131 +21,133 @@ def flush_and_repopulate(tracker, match_list):
     player_id_map = {}
     
     with db.get_db() as conn:
-        # Insert all players first
-        for player_name, player_stats in tracker.players.items():
-            cursor = conn.execute(
-                """INSERT INTO players (name, current_elo, games, wins, points, win_rate, avg_point_diff)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    player_name,
-                    round(player_stats.elo, 2),
-                    player_stats.game_count,
-                    player_stats.win_count,
-                    player_stats.points,
-                    round(player_stats.win_rate, 3),
-                    round(player_stats.avg_point_diff, 1)
-                )
-            )
-            player_id_map[player_name] = cursor.lastrowid
+        # Prepare all player data with explicit IDs
+        player_data = []
+        player_id_map = {}
+        for player_id, (name, stats) in enumerate(tracker.players.items(), start=1):
+            player_id_map[name] = player_id
+            player_data.append((
+                player_id, name, round(stats.elo, 2), stats.game_count, stats.win_count,
+                stats.points, round(stats.win_rate, 3), round(stats.avg_point_diff, 1)
+            ))
+
+        # Single batch insert with explicit IDs
+        conn.executemany(
+            """INSERT INTO players (id, name, current_elo, games, wins, points, win_rate, avg_point_diff)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            player_data
+        )
         
-        # Insert all matches
+        # Prepare all match data with explicit IDs
+        match_data = []
         match_id_map = {}
-        for match in match_list:
+        for match_id, match in enumerate(match_list, start=1):
+            match_id_map[id(match)] = match_id
             team1_p1_name, team1_p2_name = match.players[0]
             team2_p1_name, team2_p2_name = match.players[1]
-            
-            cursor = conn.execute(
-                """INSERT INTO matches (
-                    date, team1_player1_id, team1_player1_name, team1_player2_id, team1_player2_name,
-                    team2_player1_id, team2_player1_name, team2_player2_id, team2_player2_name,
-                    team1_score, team2_score, winner, team1_elo_change, team2_elo_change
-                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    match.date or '',
-                    player_id_map[team1_p1_name], team1_p1_name,
-                    player_id_map[team1_p2_name], team1_p2_name,
-                    player_id_map[team2_p1_name], team2_p1_name,
-                    player_id_map[team2_p2_name], team2_p2_name,
-                    match.original_scores[0],
-                    match.original_scores[1],
-                    match.winner,
-                    round(match.elo_deltas[0], 1) if match.elo_deltas[0] else 0,
-                    round(match.elo_deltas[1], 1) if match.elo_deltas[1] else 0
-                )
-            )
-            match_id_map[id(match)] = cursor.lastrowid
+            match_data.append((
+                match_id,
+                match.date or '',
+                player_id_map[team1_p1_name], team1_p1_name,
+                player_id_map[team1_p2_name], team1_p2_name,
+                player_id_map[team2_p1_name], team2_p1_name,
+                player_id_map[team2_p2_name], team2_p2_name,
+                match.original_scores[0], match.original_scores[1],
+                match.winner,
+                round(match.elo_deltas[0], 1) if match.elo_deltas[0] else 0,
+                round(match.elo_deltas[1], 1) if match.elo_deltas[1] else 0
+            ))
+
+        # Batch insert matches with explicit IDs
+        conn.executemany(
+            """INSERT INTO matches (
+                id, date, team1_player1_id, team1_player1_name, team1_player2_id, team1_player2_name,
+                team2_player1_id, team2_player1_name, team2_player2_id, team2_player2_name,
+                team1_score, team2_score, winner, team1_elo_change, team2_elo_change
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            match_data
+        )
         
-        # Insert partnership stats
+        # Prepare all partnership data
+        partnership_data = []
         for player_name, player_stats in tracker.players.items():
             player_id = player_id_map[player_name]
-            
             for partner_name, games in player_stats.games_with.items():
                 wins = player_stats.wins_with.get(partner_name, 0)
                 losses = games - wins
                 win_rate = wins / games if games > 0 else 0
                 points = (wins * 3) + (losses * 1)
-                
                 total_pt_diff = player_stats.point_diff_with.get(partner_name, 0)
                 avg_pt_diff = total_pt_diff / games if games > 0 else 0
                 
-                conn.execute(
-                    """INSERT INTO partnership_stats (
-                        player_id, player_name, partner_id, partner_name,
-                        games, wins, points, win_rate, avg_point_diff
-                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        player_id, player_name,
-                        player_id_map[partner_name], partner_name,
-                        games, wins, points,
-                        round(win_rate, 3),
-                        round(avg_pt_diff, 1)
-                    )
-                )
+                partnership_data.append((
+                    player_id, player_name,
+                    player_id_map[partner_name], partner_name,
+                    games, wins, points,
+                    round(win_rate, 3), round(avg_pt_diff, 1)
+                ))
+
+        # Batch insert partnerships
+        if partnership_data:
+            conn.executemany(
+                """INSERT INTO partnership_stats (
+                    player_id, player_name, partner_id, partner_name,
+                    games, wins, points, win_rate, avg_point_diff
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                partnership_data
+            )
         
-        # Insert opponent stats
+        # Prepare all opponent data
+        opponent_data = []
         for player_name, player_stats in tracker.players.items():
             player_id = player_id_map[player_name]
-            
             for opponent_name, games in player_stats.games_against.items():
                 wins = player_stats.wins_against.get(opponent_name, 0)
                 losses = games - wins
                 win_rate = wins / games if games > 0 else 0
                 points = (wins * 3) + (losses * 1)
-                
                 total_pt_diff = player_stats.point_diff_against.get(opponent_name, 0)
                 avg_pt_diff = total_pt_diff / games if games > 0 else 0
                 
-                conn.execute(
-                    """INSERT INTO opponent_stats (
-                        player_id, player_name, opponent_id, opponent_name,
-                        games, wins, points, win_rate, avg_point_diff
-                       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (
-                        player_id, player_name,
-                        player_id_map[opponent_name], opponent_name,
-                        games, wins, points,
-                        round(win_rate, 3),
-                        round(avg_pt_diff, 1)
-                    )
-                )
+                opponent_data.append((
+                    player_id, player_name,
+                    player_id_map[opponent_name], opponent_name,
+                    games, wins, points,
+                    round(win_rate, 3), round(avg_pt_diff, 1)
+                ))
+
+        # Batch insert opponents
+        if opponent_data:
+            conn.executemany(
+                """INSERT INTO opponent_stats (
+                    player_id, player_name, opponent_id, opponent_name,
+                    games, wins, points, win_rate, avg_point_diff
+                   ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                opponent_data
+            )
         
-        # Insert ELO history
-        for match_idx, match in enumerate(match_list):
-            match_id = match_id_map[id(match)]
-            
-            # Record ELO history for all 4 players in this match
-            for team_idx, team in enumerate(match.players):
-                elo_delta = match.elo_deltas[team_idx]
-                
-                for player_name in team:
-                    player_id = player_id_map[player_name]
-                    player_stats = tracker.players[player_name]
-                    
-                    # Find the ELO value at this match (match_idx)
-                    if match_idx < len(player_stats.elo_history):
-                        elo_after = player_stats.elo_history[match_idx]
-                        
-                        conn.execute(
-                            """INSERT INTO elo_history (
-                                player_id, player_name, match_id, date, elo_after, elo_change
-                               ) VALUES (?, ?, ?, ?, ?, ?)""",
-                            (
-                                player_id, player_name, match_id,
-                                match.date or '',
-                                round(elo_after, 1),
-                                round(elo_delta, 1) if elo_delta else 0
-                            )
-                        )
+        # Prepare all ELO history data
+        elo_history_data = []
+        for player_name, player_stats in tracker.players.items():
+            player_id = player_id_map[player_name]
+            for match_ref, elo_after, elo_change, date in player_stats.match_elo_history:
+                match_id = match_id_map.get(match_ref)
+                if match_id:
+                    elo_history_data.append((
+                        player_id, player_name, match_id,
+                        date or '',
+                        round(elo_after, 1),
+                        round(elo_change, 1)
+                    ))
+
+        # Batch insert ELO history
+        if elo_history_data:
+            conn.executemany(
+                """INSERT INTO elo_history (
+                    player_id, player_name, match_id, date, elo_after, elo_change
+                   ) VALUES (?, ?, ?, ?, ?, ?)""",
+                elo_history_data
+            )
 
 
 def get_rankings() -> List[Dict]:
@@ -179,18 +180,21 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
     """
     Get detailed stats for a player including partnerships and opponents.
     
-    Returns dict with structure matching old JSON format:
-    [
-        {"Partner/Opponent": "OVERALL", "Points": ..., ...},
-        {"Partner/Opponent": "", ...},  # blank row
-        {"Partner/Opponent": "WITH PARTNERS", ...},
-        {"Partner/Opponent": "partner_name", ...},
-        ...
-        {"Partner/Opponent": "", ...},  # blank row
-        {"Partner/Opponent": "VS OPPONENTS", ...},
-        {"Partner/Opponent": "opponent_name", ...},
-        ...
-    ]
+    Returns dict with structure:
+    {
+        "overview": {"ranking": 1, "points": 100, "rating": 1500},
+        "stats": [
+            {"Partner/Opponent": "OVERALL", "Points": ..., ...},
+            {"Partner/Opponent": "", ...},  # blank row
+            {"Partner/Opponent": "WITH PARTNERS", ...},
+            {"Partner/Opponent": "partner_name", ...},
+            ...
+            {"Partner/Opponent": "", ...},  # blank row
+            {"Partner/Opponent": "VS OPPONENTS", ...},
+            {"Partner/Opponent": "opponent_name", ...},
+            ...
+        ]
+    }
     """
     with db.get_db() as conn:
         # Get overall player stats
@@ -202,6 +206,21 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
         
         if not player_row:
             return None
+        
+        # Calculate player's ranking
+        cursor = conn.execute(
+            """SELECT name FROM players 
+               ORDER BY points DESC, avg_point_diff DESC, win_rate DESC, current_elo DESC"""
+        )
+        all_players = [row["name"] for row in cursor.fetchall()]
+        ranking = all_players.index(player_name) + 1 if player_name in all_players else None
+        
+        # Build overview
+        overview = {
+            "ranking": ranking,
+            "points": player_row["points"],
+            "rating": int(player_row["current_elo"])
+        }
         
         # Build results list
         results = []
@@ -244,7 +263,7 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
             """SELECT partner_name, games, wins, points, win_rate, avg_point_diff
                FROM partnership_stats
                WHERE player_name = ?
-               ORDER BY games DESC""",
+               ORDER BY points DESC, win_rate DESC""",
             (player_name,)
         )
         
@@ -286,7 +305,7 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
             """SELECT opponent_name, games, wins, points, win_rate, avg_point_diff
                FROM opponent_stats
                WHERE player_name = ?
-               ORDER BY games DESC""",
+               ORDER BY points DESC, win_rate DESC""",
             (player_name,)
         )
         
@@ -301,7 +320,10 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
                 "Avg Pt Diff": row["avg_point_diff"]
             })
         
-        return results
+        return {
+            "overview": overview,
+            "stats": results
+        }
 
 
 def get_matches(limit: Optional[int] = None) -> List[Dict]:
@@ -357,13 +379,15 @@ def get_player_match_history(player_name: str) -> List[Dict]:
         
         player_id = player_row["id"]
         
-        # Get all matches where player participated
+        # Get all matches where player participated, joined with ELO history
         cursor = conn.execute(
-            """SELECT * FROM matches
+            """SELECT m.*, eh.elo_after
+               FROM matches m
+               LEFT JOIN elo_history eh ON eh.match_id = m.id AND eh.player_id = ?
                WHERE team1_player1_id = ? OR team1_player2_id = ?
                   OR team2_player1_id = ? OR team2_player2_id = ?
-               ORDER BY date DESC""",
-            (player_id, player_id, player_id, player_id)
+               ORDER BY m.id DESC""",
+            (player_id, player_id, player_id, player_id, player_id)
         )
         
         results = []
@@ -407,7 +431,8 @@ def get_player_match_history(player_name: str) -> List[Dict]:
                 "Opponent 2": opponent2,
                 "Result": result,
                 "Score": f"{player_score}-{opponent_score}",
-                "ELO Change": elo_change
+                "ELO Change": elo_change,
+                "ELO After": row["elo_after"]
             })
         
         return results

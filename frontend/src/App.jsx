@@ -56,11 +56,9 @@ function App() {
   const handleSideTabClick = () => {
     // If player data is already loaded, just open the panel
     if (selectedPlayer && playerStats) {
-      console.log('selectedPlayer', selectedPlayer);
       setIsPanelOpen(true);
     } else if (lastViewedPlayer) {
       // Load the last viewed player
-      console.log('lastViewedPlayer', lastViewedPlayer);
       handlePlayerClick(lastViewedPlayer);
     } else {
       // Find the first place player by points with tie-breakers
@@ -70,7 +68,6 @@ function App() {
         if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
         return b.ELO - a.ELO;
       })[0] : null;
-      console.log('firstPlacePlayer', firstPlacePlayer, rankings);
       if (firstPlacePlayer) {
         handlePlayerClick(firstPlacePlayer.Name);
       } else if (allPlayerNames.length > 0) {

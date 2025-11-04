@@ -79,6 +79,7 @@ class PlayerStats:
         self.games_against = {}  # games against each player
         self.elo_history = []
         self.date_history = []   # dates corresponding to elo_history
+        self.match_elo_history = []  # List of (match_ref, elo_after, elo_change, date)
         
         # Point differential tracking
         self.total_point_diff = 0
@@ -141,11 +142,13 @@ class PlayerStats:
             self.point_diff_against[opponent] = 0
         self.point_diff_against[opponent] += diff
     
-    def update_elo(self, delta, date=None):
+    def update_elo(self, delta, date=None, match_ref=None):
         """Update ELO rating and record history."""
         self.elo += delta
         self.elo_history.append(self.elo)
         self.date_history.append(date)
+        if match_ref is not None:
+            self.match_elo_history.append((match_ref, self.elo, delta, date))
 
 
 class StatsTracker:
@@ -289,5 +292,5 @@ class StatsTracker:
         for team_idx, team in enumerate(match.players):
             for player_name in team:
                 player = self.get_player(player_name)
-                player.update_elo(deltas[team_idx], match.date)
+                player.update_elo(deltas[team_idx], match.date, match_ref=id(match))
 

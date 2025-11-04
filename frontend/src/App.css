@@ -471,7 +471,7 @@ tbody tr:hover .sticky-col {
 }
 
 .match-team.loser {
-  background: white;
+  background: var(--gray-50);
 }
 
 .team-players {
@@ -486,8 +486,8 @@ tbody tr:hover .sticky-col {
 }
 
 .match-team.loser .player-name {
-  font-weight: 400;
-  color: var(--gray-600);
+  font-weight: 600;
+  color: var(--gray-700);
 }
 
 .team-score {
@@ -502,7 +502,7 @@ tbody tr:hover .sticky-col {
 }
 
 .loser-score {
-  color: var(--gray-600);
+  color: var(--gray-700);
 }
 
 /* Player Details Modal - Retro Card Style with Slide Animation */
@@ -701,6 +701,61 @@ tbody tr:hover .sticky-col {
 .player-selector-option.disabled:hover {
   background: transparent;
   color: var(--gray-600);
+}
+
+/* Player Overview Section */
+.player-overview {
+  display: flex;
+  gap: 16px;
+  margin: 24px 0;
+  padding: 20px;
+  background: linear-gradient(135deg, var(--cream) 0%, var(--sand) 100%);
+  border-radius: 12px;
+  border: 2px solid var(--sunset-orange);
+  box-shadow: 4px 4px 0px rgba(255, 107, 53, 0.2);
+}
+
+.overview-stat {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: white;
+  border-radius: 8px;
+  border: 2px solid var(--sand);
+  transition: all 0.2s;
+}
+
+.overview-stat:hover {
+  transform: translateY(-2px);
+  box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.1);
+}
+
+.overview-icon {
+  color: var(--sunset-orange);
+  flex-shrink: 0;
+}
+
+.overview-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-label {
+  font-size: 0.75em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-600);
+  font-weight: 600;
+}
+
+.overview-value {
+  font-size: 1.5em;
+  font-weight: 800;
+  color: var(--ocean-blue);
+  font-family: 'Courier New', Courier, monospace;
 }
 
 .player-details h2 {
@@ -1096,6 +1151,17 @@ tbody tr:hover .sticky-col {
   .match-date-group {
     gap: 12px;
   }
+
+  /* Make overview stack vertically on small screens */
+  .player-overview {
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px;
+  }
+
+  .overview-value {
+    font-size: 1.25em;
+  }
 }
 
 /* Landscape mobile phones */
@@ -1199,11 +1265,33 @@ tbody tr:hover .sticky-col {
 
 /* Additional utility classes for inline style removal */
 .winner-row {
-  background: var(--success-light) !important;
+  background: white;
 }
 
 .loser-row {
-  background: var(--danger-light) !important;
+  background: white;
+}
+
+/* Match history result colors */
+.result-win {
+  color: var(--success);
+  font-weight: normal;
+}
+
+.result-loss {
+  color: var(--danger);
+  font-weight: normal;
+}
+
+/* Rating change colors */
+.rating-positive {
+  color: var(--success);
+  font-weight: normal;
+}
+
+.rating-negative {
+  color: var(--danger);
+  font-weight: normal;
 }
 
 .spacer-row {

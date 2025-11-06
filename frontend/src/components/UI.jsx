@@ -6,7 +6,7 @@ export function Button({
   children, 
   onClick, 
   disabled = false, 
-  variant = 'default', // 'default', 'success', 'tab', 'close'
+  variant = 'default', // 'default', 'success', 'tab', 'close', 'whatsapp'
   className = '',
   active = false,
   type = 'button'
@@ -15,6 +15,8 @@ export function Button({
   
   if (variant === 'success') {
     buttonClass = 'btn-success';
+  } else if (variant === 'whatsapp') {
+    buttonClass = 'btn-whatsapp';
   } else if (variant === 'tab') {
     buttonClass = `tab ${active ? 'active' : ''}`;
   } else if (variant === 'close') {

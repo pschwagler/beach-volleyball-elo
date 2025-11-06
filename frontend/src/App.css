@@ -197,6 +197,21 @@ button:disabled {
   box-shadow: 2px 2px 0px #e55a2b;
 }
 
+.btn-whatsapp {
+  background: var(--success);
+  border-color: var(--success-dark);
+  box-shadow: 4px 4px 0px var(--success-dark);
+}
+
+.btn-whatsapp:hover {
+  background: #14d489;
+  box-shadow: 6px 6px 0px var(--success-dark);
+}
+
+.btn-whatsapp:active {
+  box-shadow: 2px 2px 0px var(--success-dark);
+}
+
 .loading {
   color: var(--ocean-blue);
   padding: 32px;

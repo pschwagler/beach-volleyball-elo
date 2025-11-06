@@ -53,6 +53,13 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# WhatsApp Service
+whatsapp-service/node_modules/
+whatsapp-service/.wwebjs_auth/
+whatsapp-service/.wwebjs_cache/
+.wwebjs_auth/
+.wwebjs_cache/
+
 # IDE
 .vscode/
 .idea/
@@ -66,3 +73,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Environment variables
+.env

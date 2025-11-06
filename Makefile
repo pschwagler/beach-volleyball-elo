@@ -1,30 +1,88 @@
-.PHONY: help install dev dev-backend watch build start clean test
+.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install
 
 help:
 	@echo "Beach Volleyball ELO - Available Commands:"
 	@echo ""
-	@echo "  make install      - Install all dependencies (Python + Frontend)"
-	@echo "  make dev          - Start backend + frontend watch"
-	@echo "  make dev-backend  - Start backend only"
-	@echo "  make watch        - Watch and rebuild frontend only"
-	@echo "  make build        - Build frontend for production"
-	@echo "  make start        - Build frontend + start backend"
-	@echo "  make clean        - Remove build artifacts and database"
-	@echo "  make test         - Run tests"
+	@echo "  make install           - Install all dependencies (Python + Frontend + WhatsApp)"
+	@echo "  make dev               - Start ALL services (backend + frontend + WhatsApp)"
+	@echo "  make dev-basic         - Start backend + frontend only (no WhatsApp)"
+	@echo "  make dev-backend       - Start backend only"
+	@echo "  make watch             - Watch and rebuild frontend only"
+	@echo "  make build             - Build frontend for production"
+	@echo "  make start             - Build frontend + start backend"
+	@echo "  make clean             - Remove build artifacts and database"
+	@echo "  make clean-venv        - Remove Python virtual environment"
+	@echo "  make test              - Run tests"
+	@echo ""
+	@echo "WhatsApp Integration:"
+	@echo "  make whatsapp-install  - Install WhatsApp service dependencies"
+	@echo "  make whatsapp          - Start WhatsApp service only (run in separate terminal)"
 	@echo ""
 	@echo "Quick Start:"
-	@echo "  make dev          → Visit http://localhost:8000 and code!"
+	@echo "  make install           → Install everything"
+	@echo "  make dev               → Start all services and code!"
 	@echo ""
 
 install:
+	@echo "Setting up Python virtual environment..."
+	@if [ ! -d "venv" ]; then \
+		PYTHON_CMD=""; \
+		for cmd in python3.12 python3.11 python3.10 python3.9 python3.8 python3; do \
+			if command -v $$cmd >/dev/null 2>&1; then \
+				VERSION=$$($$cmd --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1); \
+				MAJOR=$$(echo $$VERSION | cut -d. -f1); \
+				MINOR=$$(echo $$VERSION | cut -d. -f2); \
+				if [ "$$MAJOR" -eq 3 ] && [ "$$MINOR" -ge 8 ]; then \
+					PYTHON_CMD=$$cmd; \
+					echo "Found $$cmd (Python $$VERSION)"; \
+					break; \
+				fi; \
+			fi; \
+		done; \
+		if [ -z "$$PYTHON_CMD" ]; then \
+			echo "❌ ERROR: Python 3.8+ is required but not found."; \
+			echo "Please install Python 3.8 or higher and try again."; \
+			exit 1; \
+		fi; \
+		$$PYTHON_CMD -m venv venv; \
+		echo "✅ Virtual environment created with $$PYTHON_CMD!"; \
+	else \
+		echo "Virtual environment already exists"; \
+	fi
 	@echo "Installing Python dependencies..."
-	pip install -r requirements.txt
+	./venv/bin/pip install --upgrade pip
+	./venv/bin/pip install -r requirements.txt
 	@echo "Installing frontend dependencies..."
 	cd frontend && npm install
+	@echo "Installing WhatsApp service dependencies..."
+	cd whatsapp-service && npm install
 	@echo "✅ All dependencies installed!"
+	@echo ""
+	@echo "Ready to go! Run 'make dev' to start all services."
+
+whatsapp-install:
+	@echo "Installing WhatsApp service dependencies..."
+	cd whatsapp-service && npm install
+	@echo "✅ WhatsApp service dependencies installed!"
 
 dev:
-	@echo "🚀 Starting backend + frontend watch in parallel..."
+	@echo "🚀 Starting ALL services (backend + frontend + WhatsApp)..."
+	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
+	@echo "🎨 Frontend: auto-rebuilding on file changes"
+	@echo "📱 WhatsApp: http://localhost:3001"
+	@echo ""
+	@echo "🌐 Visit: http://localhost:8000"
+	@echo "📱 WhatsApp setup: http://localhost:8000/whatsapp"
+	@echo ""
+	@echo "Press Ctrl+C to stop all services"
+	@echo ""
+	@trap 'kill 0' EXIT; \
+	(cd whatsapp-service && npm start) & \
+	(cd frontend && npm run build -- --watch) & \
+	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+
+dev-basic:
+	@echo "🚀 Starting backend + frontend watch (no WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "🎨 Frontend: auto-rebuilding on file changes"
 	@echo ""
@@ -32,12 +90,12 @@ dev:
 	@echo ""
 	@trap 'kill 0' EXIT; \
 	(cd frontend && npm run build -- --watch) & \
-	uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
 
 dev-backend:
 	@echo "Starting backend only with auto-reload..."
 	@echo "Visit: http://localhost:8000"
-	uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
 
 watch:
 	@echo "Watching frontend files and rebuilding on changes..."
@@ -52,7 +110,7 @@ build:
 
 start: build
 	@echo "Starting production server..."
-	uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
+	./venv/bin/uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
 
 clean:
 	@echo "Cleaning up..."
@@ -62,7 +120,24 @@ clean:
 	rm -rf backend/**/__pycache__
 	@echo "✅ Cleanup complete!"
 
+clean-venv:
+	@echo "Removing Python virtual environment..."
+	rm -rf venv
+	@echo "✅ Virtual environment removed!"
+	@echo ""
+	@echo "Run 'make install' to create a new venv with Python 3.8+"
+
 test:
 	@echo "Running tests..."
-	python3 -m pytest
+	./venv/bin/pytest
+
+whatsapp:
+	@echo "🚀 Starting WhatsApp service..."
+	@echo "📱 Service: http://localhost:3001"
+	@echo "🌐 Visit /whatsapp in the app to connect"
+	@echo ""
+	@echo "Press Ctrl+C to stop"
+	@echo ""
+	cd whatsapp-service && npm start
+
 

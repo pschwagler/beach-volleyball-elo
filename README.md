@@ -11,6 +11,7 @@ A modern web application for tracking beach volleyball player rankings using an 
 - **📅 Match History** - Complete game-by-game breakdown for each player
 - **🎨 Modern UI** - React-based interface with vintage Malibu beach theme
 - **🔄 Google Sheets Integration** - Easy data entry via spreadsheet
+- **📱 WhatsApp Integration** - Send notifications and updates via WhatsApp
 - **🚀 Live Deployment** - Hosted on Railway with automatic updates
 
 ## 🎯 How It Works
@@ -138,11 +139,32 @@ cd ..
 
 5. **Run the server:**
 ```bash
-uvicorn api:app --reload
+uvicorn backend.api.main:app --reload
 ```
 
 6. **Visit the app:**
    - Open http://localhost:8000 in your browser
+
+### Optional: WhatsApp Integration
+
+To enable WhatsApp notifications:
+
+**Option A - Automatic (recommended):**
+```bash
+./start-all.sh
+```
+This starts both the main app and WhatsApp service together.
+
+**Option B - Manual:**
+```bash
+# Install WhatsApp service dependencies
+make whatsapp-install
+
+# In a separate terminal, start the WhatsApp service
+make whatsapp
+```
+
+Then visit `/whatsapp` in the app to connect. See [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) for detailed instructions.
 
 ### Option 3: Legacy Google Sheets Script
 
@@ -362,8 +384,11 @@ Points determine **leaderboard position**, Rating indicates **skill level**.
 
 - [SETUP_CREDENTIALS.md](SETUP_CREDENTIALS.md) - Google Sheets API setup
 - [RAILWAY_DEPLOYMENT.md](RAILWAY_DEPLOYMENT.md) - Detailed deployment guide
-- [REACT_SETUP.md](REACT_SETUP.md) - Frontend development guide
-- [API_README.md](API_README.md) - Complete API documentation
+- [WHATSAPP_SETUP.md](WHATSAPP_SETUP.md) - WhatsApp local development guide
+- [RAILWAY_WHATSAPP.md](RAILWAY_WHATSAPP.md) - WhatsApp production deployment
+- [QUICKSTART_WHATSAPP.md](QUICKSTART_WHATSAPP.md) - WhatsApp quick start
+- [REACT_SETUP.md](REACT_SETUP.md) - Frontend development guide (if exists)
+- [API_README.md](API_README.md) - Complete API documentation (if exists)
 
 ## 🛠️ Development
 

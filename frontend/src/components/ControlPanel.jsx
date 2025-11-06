@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, ExternalLink, Loader2 } from 'lucide-react';
+import { RefreshCw, ExternalLink, Loader2, MessageCircle } from 'lucide-react';
 import { Button } from './UI';
 
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
@@ -11,6 +11,10 @@ export default function ControlPanel({ onRecalculate }) {
     setIsCalculating(true);
     await onRecalculate();
     setIsCalculating(false);
+  };
+
+  const handleWhatsAppClick = () => {
+    window.location.href = '/whatsapp';
   };
 
   return (
@@ -38,6 +42,11 @@ export default function ControlPanel({ onRecalculate }) {
           View Input Data
         </Button>
       </a>
+
+      <Button variant="whatsapp" onClick={handleWhatsAppClick}>
+        <MessageCircle size={18} />
+        WhatsApp
+      </Button>
     </div>
   );
 }

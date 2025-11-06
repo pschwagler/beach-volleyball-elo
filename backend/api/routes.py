@@ -2,10 +2,15 @@
 API route handlers for the Beach Volleyball ELO system.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from backend.services import data_service, sheets_service, calculation_service
+import httpx
+import os
 
 router = APIRouter()
+
+# WhatsApp service URL
+WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001")
 
 
 @router.post("/api/calculate")
@@ -198,4 +203,143 @@ async def health_check():
             "data_available": False,
             "message": f"Error: {str(e)}"
         }
+
+
+# WhatsApp proxy endpoints (optional - frontend can also call the service directly)
+
+@router.get("/api/whatsapp/qr")
+async def whatsapp_qr():
+    """
+    Proxy endpoint for WhatsApp QR code.
+    
+    Returns:
+        dict: QR code data and authentication status
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/api/whatsapp/qr")
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
+
+
+@router.get("/api/whatsapp/status")
+async def whatsapp_status():
+    """
+    Proxy endpoint for WhatsApp authentication status.
+    
+    Returns:
+        dict: Authentication status
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/api/whatsapp/status")
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
+
+
+@router.post("/api/whatsapp/initialize")
+async def whatsapp_initialize():
+    """
+    Proxy endpoint for initializing WhatsApp client.
+    
+    Returns:
+        dict: Initialization status
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{WHATSAPP_SERVICE_URL}/api/whatsapp/initialize")
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
+
+
+@router.post("/api/whatsapp/logout")
+async def whatsapp_logout():
+    """
+    Proxy endpoint for logging out of WhatsApp.
+    
+    Returns:
+        dict: Logout status
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(f"{WHATSAPP_SERVICE_URL}/api/whatsapp/logout")
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
+
+
+@router.get("/api/whatsapp/groups")
+async def whatsapp_groups():
+    """
+    Proxy endpoint for fetching WhatsApp group chats.
+    
+    Returns:
+        dict: List of group chats
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{WHATSAPP_SERVICE_URL}/api/whatsapp/groups")
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
+
+
+@router.post("/api/whatsapp/send")
+async def whatsapp_send(request: Request):
+    """
+    Proxy endpoint for sending WhatsApp messages.
+    
+    Request body:
+        {
+            "phoneNumber": "15551234567",  // Optional, for individual messages
+            "chatId": "123456789@g.us",    // Optional, for group messages
+            "message": "Your message"
+        }
+    
+    Returns:
+        dict: Send status
+    """
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                f"{WHATSAPP_SERVICE_URL}/api/whatsapp/send",
+                json=body
+            )
+            return response.json()
+    except httpx.ConnectError:
+        raise HTTPException(
+            status_code=503,
+            detail="WhatsApp service is not available. Make sure it's running on port 3001."
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error communicating with WhatsApp service: {str(e)}")
 

@@ -30,6 +30,7 @@ class WhatsAppClientManager {
     this.status = ClientStatus.DISCONNECTED;
     this.qrCodeData = null;
     this.clientInfo = null;
+    this.lastError = null;
     
     // Initialization
     this.initializationPromise = null;
@@ -40,6 +41,7 @@ class WhatsAppClientManager {
     // Auto-initialize on construction
     this.initialize().catch((err) => {
       console.error("⚠️  Auto-initialization failed:", err);
+      this.lastError = err.message || "Unknown initialization error";
       // Don't crash the server, client can be manually initialized later
     });
   }
@@ -51,6 +53,7 @@ class WhatsAppClientManager {
     return {
       status: this.status,
       clientInfo: this.status === ClientStatus.READY ? this.clientInfo : null,
+      error: this.lastError,
     };
   }
 
@@ -110,7 +113,16 @@ class WhatsAppClientManager {
     
     try {
       const result = await this.initializationPromise;
+      // Clear any previous errors on success
+      this.lastError = null;
       return result;
+    } catch (err) {
+      // Return error info instead of throwing (for API calls)
+      return {
+        success: false,
+        message: `Initialization failed: ${err.message}`,
+        error: err.message,
+      };
     } finally {
       // Clear the promise so future calls can retry if needed
       this.initializationPromise = null;
@@ -141,7 +153,19 @@ class WhatsAppClientManager {
         }),
         puppeteer: {
           headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-accelerated-2d-canvas",
+            "--no-first-run",
+            "--no-zygote",
+            "--single-process",
+            "--disable-gpu",
+            // Force new session, ignore lock files from crashed processes
+            "--disable-session-crashed-bubble",
+            "--disable-breakpad",
+          ],
         },
       });
 
@@ -163,15 +187,15 @@ class WhatsAppClientManager {
     } catch (err) {
       console.error(`[${this.currentClientId}] ❌ Error initializing client:`, err);
       
+      // Store the error for UI display
+      this.lastError = err.message || "Unknown initialization error";
+      
       // Reset state on error
       this.status = ClientStatus.DISCONNECTED;
       this.client = null;
       this.currentClientId = null;
       
-      return {
-        success: false,
-        message: `Initialization failed: ${err.message}`,
-      };
+      throw err; // Re-throw so the caller can handle it
     }
   }
 
@@ -204,6 +228,7 @@ class WhatsAppClientManager {
 
       this.status = ClientStatus.READY;
       this.qrCodeData = null;
+      this.lastError = null; // Clear any previous errors
 
       // Get client info
       try {
@@ -237,6 +262,7 @@ class WhatsAppClientManager {
       console.error(`[${this.currentClientId}] ❌ Authentication failure:`, msg);
       this.status = ClientStatus.DISCONNECTED;
       this.qrCodeData = null;
+      this.lastError = `Authentication failed: ${msg}`;
     });
 
     // Disconnected event
@@ -248,6 +274,7 @@ class WhatsAppClientManager {
       this.status = ClientStatus.DISCONNECTED;
       this.qrCodeData = null;
       this.clientInfo = null;
+      this.lastError = `Disconnected: ${reason}`;
       this.client = null;
       this.currentClientId = null;
     });

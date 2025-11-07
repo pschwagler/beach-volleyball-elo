@@ -19,6 +19,7 @@ export function useWhatsAppStatus() {
   const [groups, setGroups] = useState([]);
   const [loadingGroups, setLoadingGroups] = useState(false);
   const [status, setStatus] = useState('DISCONNECTED'); // Track actual status
+  const [initError, setInitError] = useState(null); // Track initialization errors
 
   const WHATSAPP_API_BASE = "/api/whatsapp";
 
@@ -67,6 +68,13 @@ export function useWhatsAppStatus() {
         setError(null);
         setServiceUnavailable(false);
         setIsLoading(false);
+        
+        // Capture initialization errors from backend
+        if (data.error) {
+          setInitError(data.error);
+        } else if (isReady) {
+          setInitError(null); // Clear error when ready
+        }
 
         // Auto-fetch groups when ready
         if (isReady) {
@@ -102,6 +110,27 @@ export function useWhatsAppStatus() {
     };
   }, [isAuthenticated, serviceUnavailable, qrCode, status]);
 
+  const handleRetry = async () => {
+    setIsLoading(true);
+    setError(null);
+    setInitError(null);
+    
+    try {
+      const response = await fetch(`${WHATSAPP_API_BASE}/initialize`, { method: "POST" });
+      const data = await response.json();
+      
+      if (!data.success) {
+        setError(data.message || "Initialization failed");
+        setInitError(data.error || data.message);
+      }
+    } catch (err) {
+      console.error("Error reinitializing:", err);
+      setError("Failed to reinitialize WhatsApp client");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (!confirm("Are you sure you want to logout? You will need to scan the QR code again.")) {
       return;
@@ -118,6 +147,7 @@ export function useWhatsAppStatus() {
         setClientInfo(null);
         setQrCode(null);
         setGroups([]); // Clearing array allows refetch on next auth
+        setInitError(null);
         return { type: "success", message: "Logged out successfully" };
       } else {
         setError(data.message);
@@ -142,7 +172,9 @@ export function useWhatsAppStatus() {
     groups,
     loadingGroups,
     status,
+    initError,
     handleLogout,
+    handleRetry,
     fetchGroups,
     setError,
   };

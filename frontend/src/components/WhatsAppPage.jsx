@@ -20,7 +20,9 @@ function WhatsAppPage() {
     groups,
     loadingGroups,
     status,
+    initError,
     handleLogout,
+    handleRetry,
     fetchGroups,
     setError,
   } = useWhatsAppStatus();
@@ -89,6 +91,25 @@ function WhatsAppPage() {
         {serviceUnavailable ? (
           // Don't show anything else if service is unavailable - error message is enough
           null
+        ) : initError && status === 'DISCONNECTED' ? (
+          // Show error and retry button for initialization failures
+          <div className="whatsapp-error-container">
+            <div className="alert alert-error">
+              <h3>⚠️ Initialization Failed</h3>
+              <p className="error-message">{initError}</p>
+              <p className="error-hint">
+                This usually happens when the previous session didn't close properly. 
+                Try clicking "Retry" to reinitialize the WhatsApp client.
+              </p>
+            </div>
+            <button 
+              className="retry-button"
+              onClick={handleRetry}
+              disabled={isLoading}
+            >
+              {isLoading ? "Retrying..." : "🔄 Retry Initialization"}
+            </button>
+          </div>
         ) : isLoading && !qrCode && !isAuthenticated ? (
           <LoadingSpinner />
         ) : isAuthenticated ? (

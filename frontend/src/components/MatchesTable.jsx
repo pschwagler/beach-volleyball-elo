@@ -1,6 +1,9 @@
 import { MatchCard } from './UI';
 
-export default function MatchesTable({ matches, onPlayerClick }) {
+export default function MatchesTable({ matches, onPlayerClick, loading }) {
+  if (loading) {
+    return <div className="loading">Loading matches...</div>;
+  }
 
   if (matches.length === 0) {
     return <div className="loading">No matches available yet. Click "Recalculate Stats" to load data.</div>;

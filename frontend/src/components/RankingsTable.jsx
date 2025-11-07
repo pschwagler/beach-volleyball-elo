@@ -1,9 +1,14 @@
 import { useState } from 'react';
 import { Crown } from 'lucide-react';
 import { Tooltip } from './UI';
+import { getFirstPlacePlayer, sortPlayersDefault } from '../utils/playerUtils';
 
-export default function RankingsTable({ rankings, onPlayerClick }) {
+export default function RankingsTable({ rankings, onPlayerClick, loading }) {
   const [sortConfig, setSortConfig] = useState({ column: 'Points', ascending: false });
+
+  if (loading) {
+    return <div className="loading">Loading rankings...</div>;
+  }
 
   const handleSort = (column) => {
     setSortConfig(prev => ({
@@ -29,20 +34,12 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
     
     if (aVal !== bVal) return primaryResult;
     
-    // Tiebreakers: Points → Avg Pt Diff → Win Rate → ELO
-    if (a.Points !== b.Points) return b.Points - a.Points;
-    if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
-    if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
-    return b.ELO - a.ELO;
+    // Use default tiebreakers
+    return sortPlayersDefault(a, b);
   });
 
-  // Find first place player by points with tie-breakers
-  const firstPlacePlayer = rankings.length > 0 ? [...rankings].sort((a, b) => {
-    if (a.Points !== b.Points) return b.Points - a.Points;
-    if (a['Avg Pt Diff'] !== b['Avg Pt Diff']) return b['Avg Pt Diff'] - a['Avg Pt Diff'];
-    if (a['Win Rate'] !== b['Win Rate']) return b['Win Rate'] - a['Win Rate'];
-    return b.ELO - a.ELO;
-  })[0] : null;
+  // Find first place player using utility function
+  const firstPlacePlayer = getFirstPlacePlayer(rankings);
 
   const formatPtDiff = (value) => {
     return value >= 0 ? `+${value}` : `${value}`;

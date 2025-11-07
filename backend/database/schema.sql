@@ -71,6 +71,13 @@ CREATE TABLE IF NOT EXISTS elo_history (
     elo_change REAL NOT NULL
 );
 
+-- Settings table: Application configuration
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for read performance
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_team1_p1 ON matches(team1_player1_id);

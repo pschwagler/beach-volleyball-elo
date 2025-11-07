@@ -105,7 +105,7 @@ export default function RankingsTable({ rankings, onPlayerClick }) {
               <span className="player-name" onClick={() => onPlayerClick(player.Name)}>
                 {player.Name}
                 {firstPlacePlayer && player.Name === firstPlacePlayer.Name && (
-                  <Crown size={16} style={{ marginLeft: '8px', color: '#FFD700', verticalAlign: 'middle' }} />
+                  <Crown size={16} className="crown-icon" />
                 )}
               </span>
             </td>

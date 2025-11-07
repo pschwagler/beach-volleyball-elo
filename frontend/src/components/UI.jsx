@@ -73,22 +73,17 @@ export function Tooltip({ children, text }) {
         ref={triggerRef}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        style={{ position: 'relative' }}
+        className="tooltip-trigger"
       >
         {children}
       </span>
       {isVisible && (
         <div
           ref={tooltipRef}
-          className="tooltip"
+          className="tooltip tooltip-fixed"
           style={{
-            position: 'fixed',
             top: `${position.top}px`,
             left: `${position.left}px`,
-            transform: 'translate(-50%, -100%)',
-            pointerEvents: 'none',
-            zIndex: 10000,
-            willChange: 'transform',
           }}
         >
           {text}

@@ -486,3 +486,41 @@ def is_database_empty() -> bool:
     """Check if database is empty (no players)."""
     return db.is_database_empty()
 
+
+def get_setting(key: str) -> Optional[str]:
+    """
+    Get a setting value by key.
+    
+    Args:
+        key: Setting key (e.g., 'whatsapp_group_id')
+        
+    Returns:
+        Setting value or None if not found
+    """
+    with db.get_db() as conn:
+        cursor = conn.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            (key,)
+        )
+        row = cursor.fetchone()
+        return row["value"] if row else None
+
+
+def set_setting(key: str, value: str) -> None:
+    """
+    Set a setting value (upsert).
+    
+    Args:
+        key: Setting key
+        value: Setting value
+    """
+    with db.get_db() as conn:
+        conn.execute(
+            """INSERT INTO settings (key, value, updated_at)
+               VALUES (?, ?, CURRENT_TIMESTAMP)
+               ON CONFLICT(key) DO UPDATE SET 
+                   value = excluded.value,
+                   updated_at = CURRENT_TIMESTAMP""",
+            (key, value)
+        )
+

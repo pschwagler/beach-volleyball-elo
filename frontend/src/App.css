@@ -74,6 +74,7 @@ body {
 .hero-header {
   position: relative;
   height: 300px;
+  background-image: var(--hero-bg-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
@@ -395,6 +396,12 @@ tbody tr:hover .sticky-col {
 
 .player-name:active {
   color: var(--coral);
+}
+
+.crown-icon {
+  margin-left: 8px;
+  color: #FFD700;
+  vertical-align: middle;
 }
 
 /* Winner/Loser cell styling */
@@ -1256,6 +1263,10 @@ tbody tr:hover .sticky-col {
 }
 
 /* React-based Tooltips */
+.tooltip-trigger {
+  position: relative;
+}
+
 .tooltip {
   background: rgba(33, 33, 33, 0.95);
   color: white;
@@ -1267,6 +1278,14 @@ tbody tr:hover .sticky-col {
   white-space: nowrap;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   animation: tooltipFadeIn 0.15s ease-out;
+}
+
+.tooltip-fixed {
+  position: fixed;
+  transform: translate(-50%, -100%);
+  pointer-events: none;
+  z-index: 10000;
+  will-change: transform;
 }
 
 @keyframes tooltipFadeIn {

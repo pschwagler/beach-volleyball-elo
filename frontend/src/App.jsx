@@ -10,7 +10,21 @@ import { useData } from './contexts/DataContext';
 import { usePlayerDetails } from './hooks/usePlayerDetails';
 
 function App() {
-  const { rankings, matches, loading, message, setMessage, handleRecalculate, allPlayerNames } = useData();
+  const { 
+    rankings, 
+    matches, 
+    activeSession,
+    loading, 
+    message, 
+    setMessage, 
+    handleRecalculate,
+    handleCreateSession,
+    handleEndSession,
+    handleCreateMatch,
+    handleUpdateMatch,
+    handleCreatePlayer,
+    allPlayerNames 
+  } = useData();
   const [activeTab, setActiveTab] = useState('matches');
 
   // Check if URL contains ?skyball query parameter
@@ -43,6 +57,13 @@ function App() {
               matches={matches} 
               onPlayerClick={handlePlayerClick}
               loading={loading}
+              activeSession={activeSession}
+              onCreateSession={handleCreateSession}
+              onEndSession={handleEndSession}
+              onCreateMatch={handleCreateMatch}
+              onUpdateMatch={handleUpdateMatch}
+              onCreatePlayer={handleCreatePlayer}
+              allPlayerNames={allPlayerNames}
             />
           )}
           {activeTab === 'rankings' && (

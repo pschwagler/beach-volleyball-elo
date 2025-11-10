@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getRankings, getMatches, calculateStats } from '../services/api';
+import { getRankings, getMatches, calculateStats, getSessions, getActiveSession, createSession, lockInSession, createMatch, updateMatch, getPlayers, createPlayer } from '../services/api';
 
 const DataContext = createContext();
 
@@ -14,6 +14,9 @@ export const useData = () => {
 export const DataProvider = ({ children }) => {
   const [rankings, setRankings] = useState([]);
   const [matches, setMatches] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [activeSession, setActiveSession] = useState(null);
+  const [allPlayerNames, setAllPlayerNames] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState(null);
 
@@ -22,16 +25,35 @@ export const DataProvider = ({ children }) => {
     loadAllData();
   }, []);
 
+  const loadPlayers = async () => {
+    try {
+      const playersData = await getPlayers().catch(() => []);
+      const playerNames = playersData.map(p => p.name).sort((a, b) => a.localeCompare(b));
+      setAllPlayerNames(playerNames);
+    } catch (error) {
+      console.error('Error loading players:', error);
+    }
+  };
+
   const loadAllData = async () => {
     try {
       setLoading(true);
-      const [rankingsData, matchesData] = await Promise.all([
+      const [rankingsData, matchesData, sessionsData, activeSessionData, playersData] = await Promise.all([
         getRankings().catch(() => []),
-        getMatches().catch(() => [])
+        getMatches().catch(() => []),
+        getSessions().catch(() => []),
+        getActiveSession().catch(() => null),
+        getPlayers().catch(() => [])
       ]);
       
       setRankings(rankingsData);
       setMatches(matchesData);
+      setSessions(sessionsData);
+      setActiveSession(activeSessionData);
+      
+      // Set player names from database
+      const playerNames = playersData.map(p => p.name).sort((a, b) => a.localeCompare(b));
+      setAllPlayerNames(playerNames);
       
       if (rankingsData.length === 0 && matchesData.length === 0) {
         setMessage({
@@ -120,36 +142,128 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  // Extract all unique player names from rankings and matches
-  const allPlayerNames = (() => {
-    const playerSet = new Set();
-    
-    // Add from rankings
-    rankings.forEach(player => {
-      if (player.Name) playerSet.add(player.Name);
-    });
-    
-    // Add from matches
-    matches.forEach(match => {
-      if (match.Team1Player1) playerSet.add(match.Team1Player1);
-      if (match.Team1Player2) playerSet.add(match.Team1Player2);
-      if (match.Team2Player1) playerSet.add(match.Team2Player1);
-      if (match.Team2Player2) playerSet.add(match.Team2Player2);
-    });
-    
-    return Array.from(playerSet).sort((a, b) => a.localeCompare(b));
-  })();
+  const handleCreatePlayer = async (name) => {
+    try {
+      await createPlayer(name);
+      // Reload player names to include the new player
+      await loadPlayers();
+    } catch (error) {
+      console.error('Error creating player:', error);
+      throw error;
+    }
+  };
+
+  const handleCreateSession = async () => {
+    try {
+      const result = await createSession();
+      
+      // Reload sessions and set as active
+      const sessionsData = await getSessions();
+      setSessions(sessionsData);
+      setActiveSession(result.session);
+      
+      return result.session;
+    } catch (error) {
+      const errorMessage = error.response?.data?.detail || error.message;
+      
+      // Check if it's a duplicate session error (400 status)
+      if (error.response?.status === 400) {
+        setMessage({
+          type: 'error',
+          text: `❌ ${errorMessage}`
+        });
+      } else {
+        setMessage({
+          type: 'error',
+          text: `❌ Error creating session: ${errorMessage}`
+        });
+      }
+      throw error;
+    }
+  };
+
+  const handleEndSession = async (sessionId) => {
+    try {
+      await lockInSession(sessionId);
+      setMessage({
+        type: 'success',
+        text: '✓ Scores submitted and stats recalculated!'
+      });
+      
+      // Reload all data to reflect the recalculated stats
+      const sessionsData = await getSessions();
+      setSessions(sessionsData);
+      setActiveSession(null);
+      await loadAllData();
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ Error submitting scores: ${error.response?.data?.detail || error.message}`
+      });
+      throw error;
+    }
+  };
+
+  const handleCreateMatch = async (matchData) => {
+    try {
+      const result = await createMatch(matchData);
+      setMessage({
+        type: 'success',
+        text: '✓ Match added successfully!'
+      });
+      
+      // Reload matches and players to show the new match and any new players
+      await Promise.all([loadMatches(), loadPlayers()]);
+      
+      return result;
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ Error creating match: ${error.response?.data?.detail || error.message}`
+      });
+      throw error;
+    }
+  };
+
+  const handleUpdateMatch = async (matchId, matchData) => {
+    try {
+      const result = await updateMatch(matchId, matchData);
+      setMessage({
+        type: 'success',
+        text: '✓ Match updated successfully!'
+      });
+      
+      // Reload matches and players to show the updated match and any new players
+      await Promise.all([loadMatches(), loadPlayers()]);
+      
+      return result;
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ Error updating match: ${error.response?.data?.detail || error.message}`
+      });
+      throw error;
+    }
+  };
 
   const value = {
     rankings,
     matches,
+    sessions,
+    activeSession,
     loading,
     message,
     setMessage,
     loadRankings,
     loadMatches,
+    loadPlayers,
     loadAllData,
     handleRecalculate,
+    handleCreateSession,
+    handleEndSession,
+    handleCreateMatch,
+    handleUpdateMatch,
+    handleCreatePlayer,
     allPlayerNames
   };
 

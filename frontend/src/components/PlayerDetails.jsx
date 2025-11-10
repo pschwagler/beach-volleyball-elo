@@ -6,12 +6,9 @@ import MatchHistoryTable from './MatchHistoryTable';
 import PlayerStatsTable from './PlayerStatsTable';
 
 export default function PlayerDetails({ playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange }) {
-  if (!stats || !stats.stats || stats.stats.length === 0) {
-    return null;
-  }
-
-  const overview = stats.overview || {};
-  const playerStats = stats.stats || [];
+  const overview = stats?.overview || {};
+  const playerStats = stats?.stats || [];
+  const hasStats = playerStats.length > 0;
 
   return (
     <div className="player-details">
@@ -26,17 +23,30 @@ export default function PlayerDetails({ playerName, stats, matchHistory, onClose
         onPlayerChange={onPlayerChange}
       />
 
-      <PlayerOverview overview={overview} />
-      
-      <MatchHistoryTable 
-        matchHistory={matchHistory}
-        onPlayerChange={onPlayerChange}
-      />
+      {hasStats ? (
+        <>
+          <PlayerOverview overview={overview} />
+          
+          <MatchHistoryTable 
+            matchHistory={matchHistory}
+            onPlayerChange={onPlayerChange}
+          />
 
-      <PlayerStatsTable 
-        playerStats={playerStats}
-        onPlayerChange={onPlayerChange}
-      />
+          <PlayerStatsTable 
+            playerStats={playerStats}
+            onPlayerChange={onPlayerChange}
+          />
+        </>
+      ) : (
+        <div className="loading" style={{marginTop: '32px'}}>
+          No stats available yet. This player's matches haven't been included in calculations.
+          {matchHistory && matchHistory.length > 0 && (
+            <div style={{marginTop: '16px', fontSize: '0.9em'}}>
+              They have {matchHistory.length} match{matchHistory.length !== 1 ? 'es' : ''} in an active session.
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

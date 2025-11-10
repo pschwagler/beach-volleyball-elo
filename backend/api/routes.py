@@ -3,10 +3,12 @@ API route handlers for the Beach Volleyball ELO system.
 """
 
 from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import Response
 from backend.services import data_service, sheets_service, calculation_service
 import httpx
 import os
 from typing import Optional, Dict, Any
+from datetime import datetime
 
 router = APIRouter()
 
@@ -78,11 +80,11 @@ async def proxy_whatsapp_request(
         )
 
 
-@router.post("/api/calculate")
-async def calculate_stats():
+@router.post("/api/loadsheets")
+async def load_sheets():
     """
-    Trigger ELO calculation from Google Sheets data.
-    Loads matches, computes all statistics, flushes DB, and saves to SQLite.
+    Load matches from Google Sheets into database and calculate statistics.
+    Creates one locked-in session per unique date from sheet data.
     
     Returns:
         dict: Status and summary of calculations
@@ -91,20 +93,25 @@ async def calculate_stats():
         # Load matches from Google Sheets
         match_list = sheets_service.load_matches_from_sheets()
         
-        # Process all matches
-        tracker = calculation_service.process_matches(match_list)
-        
-        # Flush and repopulate database
-        data_service.flush_and_repopulate(tracker, match_list)
+        # Flush and repopulate database, then calculate stats
+        result = data_service.flush_and_repopulate(None, match_list)
         
         return {
             "status": "success",
             "message": "Statistics calculated and saved successfully",
-            "player_count": len(tracker.players),
-            "match_count": len(match_list)
+            "player_count": result["player_count"],
+            "match_count": result["match_count"]
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error calculating stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error loading sheets: {str(e)}")
+
+
+@router.post("/api/calculate")
+async def calculate_stats():
+    """
+    Legacy endpoint - calls /api/loadsheets for backwards compatibility.
+    """
+    return await load_sheets()
 
 
 @router.get("/api/rankings")
@@ -138,13 +145,48 @@ async def list_players():
         list: Array of player names
     """
     try:
-        rankings = data_service.get_rankings()
-        return [{"name": player["Name"]} for player in rankings]
+        # Get all unique player names from database (not just from rankings)
+        players = data_service.get_all_player_names()
+        return [{"name": name} for name in players]
     except Exception as e:
         raise HTTPException(
-            status_code=404,
-            detail="Player data not found. Please run /api/calculate first."
+            status_code=500,
+            detail=f"Error loading players: {str(e)}"
         )
+
+
+@router.post("/api/players")
+async def create_player(request: Request):
+    """
+    Create a new player.
+    
+    Request body:
+        {
+            "name": "Player Name"
+        }
+    
+    Returns:
+        dict: Created player info
+    """
+    try:
+        body = await request.json()
+        name = body.get('name', '').strip()
+        
+        if not name:
+            raise HTTPException(status_code=400, detail="Player name is required")
+        
+        player_id = data_service.get_or_create_player(name)
+        
+        return {
+            "status": "success",
+            "message": f"Player '{name}' created successfully",
+            "player_id": player_id,
+            "name": name
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating player: {str(e)}")
 
 
 @router.get("/api/players/{player_name}")
@@ -219,6 +261,26 @@ async def get_matches():
         raise HTTPException(status_code=500, detail=f"Error loading matches: {str(e)}")
 
 
+@router.get("/api/matches/export")
+async def export_matches():
+    """
+    Export all matches to CSV format (Google Sheets compatible).
+    
+    Returns CSV file with headers: DATE, T1P1, T1P2, T2P1, T2P2, T1SCORE, T2SCORE
+    """
+    try:
+        csv_content = data_service.export_matches_to_csv()
+        return Response(
+            content=csv_content,
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": "attachment; filename=matches_export.csv"
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error exporting matches: {str(e)}")
+
+
 @router.get("/api/players/{player_name}/matches")
 async def get_player_match_history(player_name: str):
     """
@@ -228,17 +290,18 @@ async def get_player_match_history(player_name: str):
         player_name: Name of the player
         
     Returns:
-        list: Array of player's matches (most recent first)
+        list: Array of player's matches (most recent first, may be empty)
     """
     try:
         match_history = data_service.get_player_match_history(player_name)
         
-        if not match_history:
+        if match_history is None:
             raise HTTPException(
                 status_code=404,
-                detail=f"Match history for '{player_name}' not found. Please check the name and try again."
+                detail=f"Player '{player_name}' not found. Please check the name and try again."
             )
         
+        # Return empty array if player exists but has no matches
         return match_history
     except HTTPException:
         raise
@@ -394,4 +457,245 @@ async def set_whatsapp_config(request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error saving WhatsApp config: {str(e)}")
+
+
+# Session management endpoints
+
+@router.get("/api/sessions")
+async def get_sessions():
+    """
+    Get all sessions.
+    
+    Returns:
+        list: Array of all sessions (most recent first)
+    """
+    try:
+        sessions = data_service.get_sessions()
+        return sessions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading sessions: {str(e)}")
+
+
+@router.get("/api/sessions/active")
+async def get_active_session():
+    """
+    Get the currently active session, if any.
+    
+    Returns:
+        dict: Active session or null
+    """
+    try:
+        session = data_service.get_active_session()
+        return session
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error loading active session: {str(e)}")
+
+
+@router.post("/api/sessions")
+async def create_session(request: Request):
+    """
+    Create a new session.
+    
+    Request body:
+        {
+            "date": "11/7/2025"  // Optional, defaults to current date
+        }
+    
+    Returns:
+        dict: Created session info
+    """
+    try:
+        body = await request.json()
+        date = body.get('date')
+        
+        # If no date provided, use current date
+        if not date:
+            date = datetime.now().strftime('%-m/%-d/%Y')
+        
+        session = data_service.create_session(date)
+        
+        return {
+            "status": "success",
+            "message": "Session created successfully",
+            "session": session
+        }
+    except ValueError as e:
+        # Handle duplicate active session error
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+
+
+@router.post("/api/sessions/{session_id}/lockin")
+async def lock_in_session_endpoint(session_id: int):
+    """
+    Lock in a session and recalculate all statistics.
+    
+    When a session is locked in:
+    1. Session is marked as complete (is_pending = 0)
+    2. All derived stats recalculated from database (locked-in sessions only)
+    3. Newly locked matches now included in rankings, partnerships, opponents, ELO history
+    
+    Args:
+        session_id: ID of session to lock in
+    
+    Returns:
+        dict: Status message with calculation summary
+    """
+    try:
+        success = data_service.lock_in_session(session_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        # Auto-recalculate all stats from locked-in sessions
+        result = data_service.calculate_stats()
+        
+        return {
+            "status": "success",
+            "message": f"Session submitted and stats recalculated",
+            "player_count": result["player_count"],
+            "match_count": result["match_count"]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error locking in session: {str(e)}")
+
+
+@router.post("/api/sessions/{session_id}/end")
+async def end_session(session_id: int):
+    """
+    Legacy endpoint - calls lockin for backwards compatibility.
+    """
+    return await lock_in_session_endpoint(session_id)
+
+
+@router.post("/api/matches/create")
+async def create_match(request: Request):
+    """
+    Create a new match in a session.
+    
+    Request body:
+        {
+            "session_id": 1,
+            "team1_player1": "Alice",
+            "team1_player2": "Bob",
+            "team2_player1": "Charlie",
+            "team2_player2": "Dave",
+            "team1_score": 21,
+            "team2_score": 19
+        }
+    
+    Returns:
+        dict: Created match info
+    """
+    try:
+        body = await request.json()
+        
+        # Validate required fields
+        required_fields = [
+            'session_id', 'team1_player1', 'team1_player2',
+            'team2_player1', 'team2_player2', 'team1_score', 'team2_score'
+        ]
+        for field in required_fields:
+            if field not in body:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Get session to verify it exists and is pending
+        session = data_service.get_session(body['session_id'])
+        if not session:
+            raise HTTPException(status_code=404, detail=f"Session {body['session_id']} not found")
+        
+        if not session['is_active']:  # is_active still used in dict for API compatibility
+            raise HTTPException(status_code=400, detail="Cannot add matches to a submitted session")
+        
+        # Create the match using the session's date
+        match_id = data_service.create_match(
+            session_id=body['session_id'],
+            date=session['date'],
+            team1_player1=body['team1_player1'],
+            team1_player2=body['team1_player2'],
+            team2_player1=body['team2_player1'],
+            team2_player2=body['team2_player2'],
+            team1_score=body['team1_score'],
+            team2_score=body['team2_score']
+        )
+        
+        return {
+            "status": "success",
+            "message": "Match created successfully",
+            "match_id": match_id,
+            "session_id": body['session_id']
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating match: {str(e)}")
+
+
+@router.put("/api/matches/{match_id}")
+async def update_match(match_id: int, request: Request):
+    """
+    Update an existing match.
+    
+    Args:
+        match_id: ID of match to update
+    
+    Request body:
+        {
+            "team1_player1": "Alice",
+            "team1_player2": "Bob",
+            "team2_player1": "Charlie",
+            "team2_player2": "Dave",
+            "team1_score": 21,
+            "team2_score": 19
+        }
+    
+    Returns:
+        dict: Update status
+    """
+    try:
+        body = await request.json()
+        
+        # Validate required fields
+        required_fields = [
+            'team1_player1', 'team1_player2',
+            'team2_player1', 'team2_player2', 'team1_score', 'team2_score'
+        ]
+        for field in required_fields:
+            if field not in body:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Get match to verify it exists and belongs to active session
+        match = data_service.get_match(match_id)
+        if not match:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+        
+        if match['session_active'] is False:
+            raise HTTPException(status_code=400, detail="Cannot edit matches in a submitted session")
+        
+        # Update the match
+        success = data_service.update_match(
+            match_id=match_id,
+            team1_player1=body['team1_player1'],
+            team1_player2=body['team1_player2'],
+            team2_player1=body['team2_player1'],
+            team2_player2=body['team2_player2'],
+            team1_score=body['team1_score'],
+            team2_score=body['team2_score']
+        )
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+        
+        return {
+            "status": "success",
+            "message": "Match updated successfully",
+            "match_id": match_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating match: {str(e)}")
 

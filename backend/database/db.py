@@ -49,6 +49,7 @@ def flush_all_tables():
         conn.execute("DELETE FROM opponent_stats")
         conn.execute("DELETE FROM partnership_stats")
         conn.execute("DELETE FROM matches")
+        conn.execute("DELETE FROM sessions")
         conn.execute("DELETE FROM players")
 
 

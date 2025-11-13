@@ -44,9 +44,13 @@ export function usePlayerDetails(rankings, allPlayerNames, setMessage, matches) 
         setPlayerMatchHistory(matchHistory);
       }).catch(error => {
         console.error('Error refreshing player details:', error);
+        setMessage({
+          type: 'error',
+          text: 'Failed to refresh player details. Please close and reopen the player panel.'
+        });
       });
     }
-  }, [matches, selectedPlayer]);
+  }, [matches, selectedPlayer, setMessage]);
 
   const handlePlayerClick = async (playerName) => {
     try {

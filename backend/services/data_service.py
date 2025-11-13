@@ -163,36 +163,49 @@ def calculate_stats() -> Dict:
     # Process through calculation engine
     tracker = calculation_service.process_matches(match_list)
     
-    # Flush derived stats tables (preserve sessions & matches)
+    # Flush derived stats tables (preserve sessions & matches & players)
     with db.get_db() as conn:
         conn.execute("DELETE FROM elo_history")
         conn.execute("DELETE FROM opponent_stats")
         conn.execute("DELETE FROM partnership_stats")
-        conn.execute("DELETE FROM players")
         
-        # Build player ID map and insert players
-        # Sort by name to ensure consistent player IDs across runs
-        player_id_map = {}
-        player_data = []
-        for player_id, (name, stats) in enumerate(sorted(tracker.players.items()), start=1):
-            player_id_map[name] = player_id
-            player_data.append((
-                player_id, name, round(stats.elo, 2), stats.game_count, stats.win_count,
+        # Update or insert players (preserve existing IDs)
+        for name, stats in tracker.players.items():
+            conn.execute("""
+                INSERT INTO players (name, current_elo, games, wins, points, win_rate, avg_point_diff)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(name) DO UPDATE SET
+                    current_elo = excluded.current_elo,
+                    games = excluded.games,
+                    wins = excluded.wins,
+                    points = excluded.points,
+                    win_rate = excluded.win_rate,
+                    avg_point_diff = excluded.avg_point_diff
+            """, (
+                name, round(stats.elo, 2), stats.game_count, stats.win_count,
                 stats.points, round(stats.win_rate, 3), round(stats.avg_point_diff, 1)
             ))
         
-        conn.executemany(
-            """INSERT INTO players (id, name, current_elo, games, wins, points, win_rate, avg_point_diff)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-            player_data
-        )
+        # Rebuild player_id_map from database
+        player_id_map = {}
+        cursor = conn.execute("SELECT id, name FROM players")
+        for row in cursor.fetchall():
+            player_id_map[row["name"]] = row["id"]
         
-        # Update player IDs in matches table to match new player IDs
-        for name, player_id in player_id_map.items():
-            conn.execute("UPDATE matches SET team1_player1_id = ? WHERE team1_player1_name = ?", (player_id, name))
-            conn.execute("UPDATE matches SET team1_player2_id = ? WHERE team1_player2_name = ?", (player_id, name))
-            conn.execute("UPDATE matches SET team2_player1_id = ? WHERE team2_player1_name = ?", (player_id, name))
-            conn.execute("UPDATE matches SET team2_player2_id = ? WHERE team2_player2_name = ?", (player_id, name))
+        # Update player IDs in matches table using bulk CASE update
+        if player_id_map:
+            when_clauses = " ".join([
+                f"WHEN '{name}' THEN {player_id}" 
+                for name, player_id in player_id_map.items()
+            ])
+            
+            conn.execute(f"""
+                UPDATE matches 
+                SET team1_player1_id = CASE team1_player1_name {when_clauses} ELSE team1_player1_id END,
+                    team1_player2_id = CASE team1_player2_name {when_clauses} ELSE team1_player2_id END,
+                    team2_player1_id = CASE team2_player1_name {when_clauses} ELSE team2_player1_id END,
+                    team2_player2_id = CASE team2_player2_name {when_clauses} ELSE team2_player2_id END
+            """)
         
         # Update match ELO changes (only for locked-in sessions)
         for match in match_list:
@@ -841,6 +854,48 @@ def lock_in_session(session_id: int) -> bool:
         return cursor.rowcount > 0
 
 
+def delete_session(session_id: int) -> bool:
+    """
+    Delete an active session and all its matches.
+    Only active (pending) sessions can be deleted.
+    
+    Args:
+        session_id: ID of session to delete
+        
+    Returns:
+        True if successful, False if session not found or not active
+        
+    Raises:
+        ValueError: If session is not active (already submitted)
+    """
+    with db.get_db() as conn:
+        # Check if session exists and is active
+        cursor = conn.execute(
+            "SELECT is_pending FROM sessions WHERE id = ?",
+            (session_id,)
+        )
+        session = cursor.fetchone()
+        
+        if not session:
+            return False
+        
+        if session['is_pending'] != 1:
+            raise ValueError("Cannot delete a submitted session. Only active sessions can be deleted.")
+        
+        # First delete all matches in the session
+        conn.execute(
+            "DELETE FROM matches WHERE session_id = ?",
+            (session_id,)
+        )
+        
+        # Then delete the session itself
+        cursor = conn.execute(
+            "DELETE FROM sessions WHERE id = ?",
+            (session_id,)
+        )
+        return cursor.rowcount > 0
+
+
 def get_all_player_names() -> List[str]:
     """
     Get all unique player names from the database.
@@ -1005,6 +1060,24 @@ def update_match(
             )
         )
         
+        return cursor.rowcount > 0
+
+
+def delete_match(match_id: int) -> bool:
+    """
+    Delete a match from the database.
+    
+    Args:
+        match_id: ID of the match to delete
+        
+    Returns:
+        True if successful, False if match not found
+    """
+    with db.get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM matches WHERE id = ?",
+            (match_id,)
+        )
         return cursor.rowcount > 0
 
 

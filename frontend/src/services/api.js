@@ -23,14 +23,6 @@ export const loadFromSheets = async () => {
 };
 
 /**
- * Recalculate statistics from existing database matches
- */
-export const calculateStats = async () => {
-  const response = await api.post('/api/calculate');
-  return response.data;
-};
-
-/**
  * Get current rankings
  */
 export const getRankings = async () => {
@@ -127,6 +119,14 @@ export const lockInSession = async (sessionId) => {
 };
 
 /**
+ * Delete a session
+ */
+export const deleteSession = async (sessionId) => {
+  const response = await api.delete(`/api/sessions/${sessionId}`);
+  return response.data;
+};
+
+/**
  * End a session (legacy - use lockInSession instead)
  */
 export const endSession = async (sessionId) => {
@@ -147,6 +147,12 @@ export const createMatch = async (matchData) => {
  */
 export const updateMatch = async (matchId, matchData) => {
   const response = await api.put(`/api/matches/${matchId}`, matchData);
+  return response.data;
+};
+
+// Delete an existing match
+export const deleteMatch = async (matchId) => {
+  const response = await api.delete(`/api/matches/${matchId}`);
   return response.data;
 };
 

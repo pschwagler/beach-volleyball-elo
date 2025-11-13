@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getRankings, getMatches, loadFromSheets, getSessions, getActiveSession, createSession, lockInSession, createMatch, updateMatch, getPlayers, createPlayer } from '../services/api';
+import { getRankings, getMatches, loadFromSheets, getSessions, getActiveSession, createSession, lockInSession, deleteSession, createMatch, updateMatch, deleteMatch, getPlayers, createPlayer } from '../services/api';
 
 const DataContext = createContext();
 
@@ -204,6 +204,28 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const handleDeleteSession = async (sessionId) => {
+    try {
+      await deleteSession(sessionId);
+      setMessage({
+        type: 'success',
+        text: '✓ Session deleted successfully!'
+      });
+      
+      // Reload sessions and clear active session
+      const sessionsData = await getSessions();
+      setSessions(sessionsData);
+      setActiveSession(null);
+      await loadMatches();
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ Error deleting session: ${error.response?.data?.detail || error.message}`
+      });
+      throw error;
+    }
+  };
+
   const handleCreateMatch = async (matchData) => {
     try {
       const result = await createMatch(matchData);
@@ -246,6 +268,27 @@ export const DataProvider = ({ children }) => {
     }
   };
 
+  const handleDeleteMatch = async (matchId) => {
+    try {
+      const result = await deleteMatch(matchId);
+      setMessage({
+        type: 'success',
+        text: '✓ Match deleted successfully!'
+      });
+      
+      // Reload matches to remove the deleted match
+      await loadMatches();
+      
+      return result;
+    } catch (error) {
+      setMessage({
+        type: 'error',
+        text: `❌ Error deleting match: ${error.response?.data?.detail || error.message}`
+      });
+      throw error;
+    }
+  };
+
   const value = {
     rankings,
     matches,
@@ -261,8 +304,10 @@ export const DataProvider = ({ children }) => {
     handleLoadFromSheets,
     handleCreateSession,
     handleEndSession,
+    handleDeleteSession,
     handleCreateMatch,
     handleUpdateMatch,
+    handleDeleteMatch,
     handleCreatePlayer,
     allPlayerNames
   };

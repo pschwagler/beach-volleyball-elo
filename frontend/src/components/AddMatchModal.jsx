@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './UI';
 import PlayerDropdown from './PlayerDropdown';
+import ConfirmationModal from './ConfirmationModal';
 
 // Constants
 const INITIAL_FORM_STATE = {
@@ -38,13 +39,22 @@ const validateScores = (formData) => {
     return { isValid: false, errorMessage: 'Please enter valid scores' };
   }
   
+  if (score1 === score2) {
+    return { isValid: false, errorMessage: 'Scores cannot be tied. There must be a winner.' };
+  }
+  
+  if (score1 === 0 && score2 === 0) {
+    return { isValid: false, errorMessage: 'Both scores cannot be zero' };
+  }
+  
   return { isValid: true, errorMessage: null, score1, score2 };
 };
 
-export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames, onCreatePlayer, editMatch = null }) {
+export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames, onCreatePlayer, onDelete, editMatch = null }) {
   const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // Handle any field change
   const handleFieldChange = (field, value) => {
@@ -104,6 +114,26 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
 
     setIsSubmitting(true);
     try {
+      // Create any new players first (players not in allPlayerNames)
+      const playersInMatch = [
+        formData.team1Player1,
+        formData.team1Player2,
+        formData.team2Player1,
+        formData.team2Player2
+      ];
+      
+      const newPlayers = playersInMatch.filter(
+        player => player && !allPlayerNames.includes(player)
+      );
+
+      // Create new players in the database
+      if (newPlayers.length > 0 && onCreatePlayer) {
+        for (const playerName of newPlayers) {
+          await onCreatePlayer(playerName);
+        }
+      }
+
+      // Now submit the match
       await onSubmit({
         team1_player1: formData.team1Player1,
         team1_player2: formData.team1Player2,
@@ -127,6 +157,27 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
     }
   };
 
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!editMatch || !onDelete) return;
+    
+    setIsSubmitting(true);
+    try {
+      await onDelete(editMatch['Match ID']);
+      setShowDeleteConfirm(false);
+      onClose();
+    } catch (error) {
+      console.error('Error deleting match:', error);
+      setFormError('Failed to delete match. Please try again.');
+      setShowDeleteConfirm(false);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   // Get list of selected players for each dropdown to exclude
@@ -136,10 +187,11 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   };
 
   // Determine winner based on scores
-  const score1 = parseInt(formData.team1Score) || 0;
-  const score2 = parseInt(formData.team2Score) || 0;
-  const team1IsWinner = score1 > score2 && score2 > 0;
-  const team2IsWinner = score2 > score1 && score1 > 0;
+  const score1 = parseInt(formData.team1Score);
+  const score2 = parseInt(formData.team2Score);
+  const hasValidScores = !isNaN(score1) && !isNaN(score2) && score1 >= 0 && score2 >= 0;
+  const team1IsWinner = hasValidScores && score1 > score2;
+  const team2IsWinner = hasValidScores && score2 > score1;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -150,6 +202,19 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             <X size={20} />
           </Button>
         </div>
+
+        {editMatch && onDelete && (
+          <div className="delete-match-link">
+            <button 
+              type="button" 
+              onClick={handleDeleteClick} 
+              disabled={isSubmitting}
+              className="delete-match-text-btn"
+            >
+              Delete match
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="add-match-form">
           {formError && (
@@ -170,7 +235,6 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             onPlayerChange={handlePlayerChange}
             onScoreChange={handleFieldChange}
             allPlayerNames={allPlayerNames}
-            onCreatePlayer={onCreatePlayer}
             getExcludedPlayers={getExcludedPlayers}
           />
 
@@ -188,7 +252,6 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
             onPlayerChange={handlePlayerChange}
             onScoreChange={handleFieldChange}
             allPlayerNames={allPlayerNames}
-            onCreatePlayer={onCreatePlayer}
             getExcludedPlayers={getExcludedPlayers}
           />
 
@@ -202,6 +265,16 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
           </div>
         </form>
       </div>
+      
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Match"
+        message="Are you sure you want to delete this match? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
@@ -219,7 +292,6 @@ function TeamSection({
   onPlayerChange, 
   onScoreChange,
   allPlayerNames,
-  onCreatePlayer,
   getExcludedPlayers
 }) {
   return (
@@ -238,7 +310,6 @@ function TeamSection({
             value={player1Value}
             onChange={(player) => onPlayerChange(player1Field, player)}
             allPlayerNames={allPlayerNames || []}
-            onCreatePlayer={onCreatePlayer}
             placeholder="Player 1"
             excludePlayers={getExcludedPlayers(player1Value)}
           />
@@ -246,7 +317,6 @@ function TeamSection({
             value={player2Value}
             onChange={(player) => onPlayerChange(player2Field, player)}
             allPlayerNames={allPlayerNames || []}
-            onCreatePlayer={onCreatePlayer}
             placeholder="Player 2"
             excludePlayers={getExcludedPlayers(player2Value)}
           />

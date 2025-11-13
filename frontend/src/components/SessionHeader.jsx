@@ -1,6 +1,6 @@
-import { Trophy, Users } from 'lucide-react';
+import { Trophy, Users, X } from 'lucide-react';
 
-export default function SessionHeader({ sessionName, gameCount, playerCount }) {
+export default function SessionHeader({ sessionName, gameCount, playerCount, onDelete }) {
   return (
     <div className="session-header">
       <div className="session-title-group">
@@ -22,6 +22,15 @@ export default function SessionHeader({ sessionName, gameCount, playerCount }) {
           <Users size={18} />
           {playerCount} {playerCount === 1 ? 'player' : 'players'}
         </div>
+        {onDelete && (
+          <button 
+            onClick={onDelete}
+            className="session-delete-btn"
+            title="Delete empty session"
+          >
+            <X size={20} />
+          </button>
+        )}
       </div>
     </div>
   );

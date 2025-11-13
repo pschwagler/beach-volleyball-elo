@@ -11,9 +11,11 @@ export default function MatchesTable({
   loading, 
   activeSession, 
   onCreateSession, 
-  onEndSession, 
+  onEndSession,
+  onDeleteSession, 
   onCreateMatch,
   onUpdateMatch,
+  onDeleteMatch,
   onCreatePlayer,
   allPlayerNames 
 }) {
@@ -134,6 +136,7 @@ export default function MatchesTable({
           onAddMatchClick={() => setIsAddMatchModalOpen(true)}
           onEditMatch={handleEditMatch}
           onSubmitClick={() => setIsEndSessionModalOpen(true)}
+          onDeleteSession={onDeleteSession}
         />
       )}
 
@@ -174,6 +177,7 @@ export default function MatchesTable({
         isOpen={isAddMatchModalOpen}
         onClose={handleCloseModal}
         onSubmit={handleAddMatch}
+        onDelete={onDeleteMatch}
         allPlayerNames={allPlayerNames}
         onCreatePlayer={onCreatePlayer}
         editMatch={editingMatch}

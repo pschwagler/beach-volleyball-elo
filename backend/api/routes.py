@@ -585,6 +585,39 @@ async def end_session(session_id: int):
     return await lock_in_session_endpoint(session_id)
 
 
+@router.delete("/api/sessions/{session_id}")
+async def delete_session(session_id: int):
+    """
+    Delete an active session and all its matches.
+    Only active (pending) sessions can be deleted.
+    
+    Args:
+        session_id: ID of session to delete
+    
+    Returns:
+        dict: Delete status
+    """
+    try:
+        # Delete the session (and all its matches)
+        success = data_service.delete_session(session_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Session {session_id} not found")
+        
+        return {
+            "status": "success",
+            "message": "Session deleted successfully",
+            "session_id": session_id
+        }
+    except ValueError as e:
+        # Session is not active (already submitted)
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
+
+
 @router.post("/api/matches/create")
 async def create_match(request: Request):
     """
@@ -615,6 +648,14 @@ async def create_match(request: Request):
         for field in required_fields:
             if field not in body:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+        
+        # Validate all players are distinct
+        players = [
+            body['team1_player1'], body['team1_player2'],
+            body['team2_player1'], body['team2_player2']
+        ]
+        if len(players) != len(set(players)):
+            raise HTTPException(status_code=400, detail="All four players must be distinct")
         
         # Get session to verify it exists and is pending
         session = data_service.get_session(body['session_id'])
@@ -681,6 +722,14 @@ async def update_match(match_id: int, request: Request):
             if field not in body:
                 raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
         
+        # Validate all players are distinct
+        players = [
+            body['team1_player1'], body['team1_player2'],
+            body['team2_player1'], body['team2_player2']
+        ]
+        if len(players) != len(set(players)):
+            raise HTTPException(status_code=400, detail="All four players must be distinct")
+        
         # Get match to verify it exists and belongs to active session
         match = data_service.get_match(match_id)
         if not match:
@@ -712,4 +761,41 @@ async def update_match(match_id: int, request: Request):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating match: {str(e)}")
+
+
+@router.delete("/api/matches/{match_id}")
+async def delete_match(match_id: int):
+    """
+    Delete a match.
+    
+    Args:
+        match_id: ID of match to delete
+    
+    Returns:
+        dict: Delete status
+    """
+    try:
+        # Get match to verify it exists and belongs to active session
+        match = data_service.get_match(match_id)
+        if not match:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+        
+        if match['session_active'] is False:
+            raise HTTPException(status_code=400, detail="Cannot delete matches in a submitted session")
+        
+        # Delete the match
+        success = data_service.delete_match(match_id)
+        
+        if not success:
+            raise HTTPException(status_code=404, detail=f"Match {match_id} not found")
+        
+        return {
+            "status": "success",
+            "message": "Match deleted successfully",
+            "match_id": match_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting match: {str(e)}")
 

@@ -6,15 +6,18 @@ export function Button({
   children, 
   onClick, 
   disabled = false, 
-  variant = 'default', // 'default', 'success', 'tab', 'close', 'whatsapp'
+  variant = 'default', // 'default', 'success', 'danger', 'tab', 'close', 'whatsapp'
   className = '',
   active = false,
-  type = 'button'
+  type = 'button',
+  style = {}
 }) {
   let buttonClass = 'button';
   
   if (variant === 'success') {
     buttonClass = 'btn-success';
+  } else if (variant === 'danger') {
+    buttonClass = 'btn-danger';
   } else if (variant === 'whatsapp') {
     buttonClass = 'btn-whatsapp';
   } else if (variant === 'tab') {
@@ -29,6 +32,7 @@ export function Button({
       className={`${buttonClass} ${className}`}
       onClick={onClick}
       disabled={disabled}
+      style={style}
     >
       {children}
     </button>

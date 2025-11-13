@@ -198,6 +198,25 @@ button:disabled {
   box-shadow: 2px 2px 0px #e55a2b;
 }
 
+.btn-danger {
+  background: #dc3545;
+  border-color: #b02a37;
+  box-shadow: 4px 4px 0px #b02a37;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-danger:hover {
+  background: #c82333;
+  box-shadow: 6px 6px 0px #b02a37;
+}
+
+.btn-danger:active {
+  box-shadow: 2px 2px 0px #b02a37;
+}
+
 .btn-whatsapp {
   background: var(--success);
   border-color: var(--success-dark);
@@ -1472,6 +1491,41 @@ tbody tr:hover .sticky-col {
   gap: 24px;
 }
 
+.delete-match-link {
+  text-align: right;
+  padding: 0 28px;
+  height: 2em;
+}
+
+.delete-match-text-btn {
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 0.82em;
+  cursor: pointer;
+  padding: 0;
+  margin: 0;
+  text-decoration: underline;
+  box-shadow: none;
+  transition: none;
+  transform: none;
+  font-weight: normal;
+}
+
+.delete-match-text-btn:hover {
+  background: none;
+  border: none;
+  color: var(--danger);
+  box-shadow: none;
+  transform: none;
+  font-weight: bold;
+}
+
+.delete-match-text-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .team-section {
   display: flex;
   flex-direction: column;
@@ -2015,6 +2069,13 @@ tbody tr:hover .sticky-col {
   font-weight: 700;
 }
 
+.player-dropdown-option.highlighted {
+  background: rgba(74, 144, 164, 0.15);
+  color: var(--ocean-blue);
+  outline: 2px solid rgba(74, 144, 164, 0.3);
+  outline-offset: -2px;
+}
+
 .player-dropdown-option.disabled {
   cursor: not-allowed;
   color: var(--gray-600);
@@ -2030,7 +2091,7 @@ tbody tr:hover .sticky-col {
   background: var(--success-light);
   color: var(--success);
   font-weight: 700;
-  border-bottom: 2px solid var(--gray-200);
+  border-top: 2px solid var(--gray-200);
 }
 
 .player-dropdown-option.create-new:hover {
@@ -2184,6 +2245,31 @@ tbody tr:hover .sticky-col {
 
 .session-stat:nth-child(2) {
   color: #3b82f6;
+}
+
+.session-delete-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 8px;
+  box-shadow: none;
+  transition: none;
+  transform: none;
+}
+
+.session-delete-btn:hover {
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.session-delete-btn:active {
+  transform: none;
 }
 
 /* Session Action Buttons */

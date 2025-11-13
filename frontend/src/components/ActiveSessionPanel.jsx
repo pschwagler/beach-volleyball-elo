@@ -21,10 +21,17 @@ export default function ActiveSessionPanel({
   onPlayerClick,
   onAddMatchClick,
   onEditMatch,
-  onSubmitClick
+  onSubmitClick,
+  onDeleteSession
 }) {
   const gameCount = activeSessionMatches.length;
   const playerCount = getUniquePlayersCount(activeSessionMatches);
+
+  const handleDeleteSession = () => {
+    if (onDeleteSession) {
+      onDeleteSession(activeSession.id);
+    }
+  };
 
   return (
     <div className="active-session-panel">
@@ -32,6 +39,7 @@ export default function ActiveSessionPanel({
         sessionName={activeSession.name}
         gameCount={gameCount}
         playerCount={playerCount}
+        onDelete={gameCount === 0 ? handleDeleteSession : null}
       />
 
       <SessionActions 

@@ -20,8 +20,10 @@ function App() {
     handleLoadFromSheets,
     handleCreateSession,
     handleEndSession,
+    handleDeleteSession,
     handleCreateMatch,
     handleUpdateMatch,
+    handleDeleteMatch,
     handleCreatePlayer,
     allPlayerNames 
   } = useData();
@@ -60,8 +62,10 @@ function App() {
               activeSession={activeSession}
               onCreateSession={handleCreateSession}
               onEndSession={handleEndSession}
+              onDeleteSession={handleDeleteSession}
               onCreateMatch={handleCreateMatch}
               onUpdateMatch={handleUpdateMatch}
+              onDeleteMatch={handleDeleteMatch}
               onCreatePlayer={handleCreatePlayer}
               allPlayerNames={allPlayerNames}
             />

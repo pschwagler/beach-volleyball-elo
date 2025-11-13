@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, UserPlus } from 'lucide-react';
 
-export default function PlayerDropdown({ value, onChange, allPlayerNames, onCreatePlayer, placeholder = "Select player" }) {
+export default function PlayerDropdown({ value, onChange, allPlayerNames, onCreatePlayer, placeholder = "Select player", excludePlayers = [] }) {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -13,7 +13,7 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, onCrea
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setIsOpen(false);
         setSearchTerm('');
-        setIsCreatingNew(false);
+        setIsCreating(false);
       }
     };
 
@@ -23,7 +23,8 @@ export default function PlayerDropdown({ value, onChange, allPlayerNames, onCrea
 
   const filteredPlayers = allPlayerNames
     ? allPlayerNames.filter(player => 
-        player.toLowerCase().includes(searchTerm.toLowerCase())
+        player.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !excludePlayers.includes(player)
       )
     : [];
 

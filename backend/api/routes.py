@@ -109,9 +109,23 @@ async def load_sheets():
 @router.post("/api/calculate")
 async def calculate_stats():
     """
-    Legacy endpoint - calls /api/loadsheets for backwards compatibility.
+    Recalculate statistics from existing database matches (locked-in sessions only).
+    Does not load from Google Sheets - use /api/loadsheets for that.
+    
+    Returns:
+        dict: Status and summary of calculations
     """
-    return await load_sheets()
+    try:
+        result = data_service.calculate_stats()
+        
+        return {
+            "status": "success",
+            "message": "Statistics recalculated successfully",
+            "player_count": result["player_count"],
+            "match_count": result["match_count"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculating stats: {str(e)}")
 
 
 @router.get("/api/rankings")

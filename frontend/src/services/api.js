@@ -15,7 +15,15 @@ const api = axios.create({
 });
 
 /**
- * Trigger ELO calculation from Google Sheets
+ * Load matches from Google Sheets and calculate statistics
+ */
+export const loadFromSheets = async () => {
+  const response = await api.post('/api/loadsheets');
+  return response.data;
+};
+
+/**
+ * Recalculate statistics from existing database matches
  */
 export const calculateStats = async () => {
   const response = await api.post('/api/calculate');

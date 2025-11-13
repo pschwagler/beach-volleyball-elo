@@ -6,13 +6,13 @@ import { exportMatchesToCSV } from '../services/api';
 
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 
-export default function ControlPanel({ onRecalculate }) {
-  const [isCalculating, setIsCalculating] = useState(false);
+export default function ControlPanel({ onLoadFromSheets }) {
+  const [isLoading, setIsLoading] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
 
-  const handleRecalculate = async () => {
+  const handleLoadFromSheets = async () => {
     setShowConfirmModal(false);
-    setIsCalculating(true);
+    setIsLoading(true);
     
     // First, download a backup of current matches
     try {
@@ -22,9 +22,9 @@ export default function ControlPanel({ onRecalculate }) {
       // Continue with refresh even if backup fails
     }
     
-    // Then proceed with refresh
-    await onRecalculate();
-    setIsCalculating(false);
+    // Then proceed with loading from sheets
+    await onLoadFromSheets();
+    setIsLoading(false);
   };
 
   const handleWhatsAppClick = () => {
@@ -45,9 +45,9 @@ export default function ControlPanel({ onRecalculate }) {
       <div className="controls">
         <Button
           onClick={() => setShowConfirmModal(true)}
-          disabled={isCalculating}
+          disabled={isLoading}
         >
-          {isCalculating ? (
+          {isLoading ? (
             <>
               <Loader2 size={18} className="spin" />
               Loading...
@@ -81,7 +81,7 @@ export default function ControlPanel({ onRecalculate }) {
       <ConfirmationModal
         isOpen={showConfirmModal}
         onClose={() => setShowConfirmModal(false)}
-        onConfirm={handleRecalculate}
+        onConfirm={handleLoadFromSheets}
         title="Refresh from Google Sheets"
         message="Are you sure you want to refresh from Google Sheets? This will replace all current data. Any matches not in the sheet will be permanently deleted. A backup CSV will be automatically downloaded before refreshing."
         confirmText="Refresh Data"

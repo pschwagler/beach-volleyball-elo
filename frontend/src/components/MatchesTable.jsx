@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { Plus, PlusCircle, Lock } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { MatchCard, Button } from './UI';
 import AddMatchModal from './AddMatchModal';
 import ConfirmationModal from './ConfirmationModal';
+import ActiveSessionPanel from './ActiveSessionPanel';
 
 export default function MatchesTable({ 
   matches, 
@@ -124,41 +125,16 @@ export default function MatchesTable({
         <div className="loading">No matches yet. Start a session and add your first match!</div>
       )}
 
-      {/* Active session - displayed as first match-date-group */}
+      {/* Active session - Retro Pro Design */}
       {gameOnMode && activeSession && (
-        <div className="match-date-group active-session-group">
-          <div className="match-date-header-container">
-            <div className="match-date-header-left">
-              <h3 className="match-date-header">
-                <span className="active-badge">Pending</span>
-                {activeSession.name}
-              </h3>
-            </div>
-            <Button 
-              onClick={() => setIsEndSessionModalOpen(true)} 
-              className="btn-end-session-header"
-            >
-              <Lock size={18} />
-              Submit Scores
-            </Button>
-          </div>
-          <div className="match-cards">
-            {activeSessionMatches.map((match, idx) => (
-              <MatchCard 
-                key={idx} 
-                match={match} 
-                onPlayerClick={onPlayerClick}
-                onEdit={handleEditMatch}
-                showEdit={true}
-              />
-            ))}
-            {/* Add Match card at the end */}
-            <div className="add-match-card" onClick={() => setIsAddMatchModalOpen(true)}>
-              <PlusCircle size={40} />
-              <span>Add Match</span>
-            </div>
-          </div>
-        </div>
+        <ActiveSessionPanel
+          activeSession={activeSession}
+          activeSessionMatches={activeSessionMatches}
+          onPlayerClick={onPlayerClick}
+          onAddMatchClick={() => setIsAddMatchModalOpen(true)}
+          onEditMatch={handleEditMatch}
+          onSubmitClick={() => setIsEndSessionModalOpen(true)}
+        />
       )}
 
       {/* Session/date groups (exclude active session if in gameon mode) */}
@@ -208,7 +184,7 @@ export default function MatchesTable({
         onClose={() => setIsEndSessionModalOpen(false)}
         onConfirm={handleLockInSession}
         title="Submit Scores"
-        message="Are you sure you want to submit these scores? Once submitted, all stats will be recalculated and the session will be locked."
+        message="Are you sure you want to submit these scores? Once submitted, matches will be locked in and no edits will be allowed."
         confirmText="Submit Scores"
         cancelText="Cancel"
       />

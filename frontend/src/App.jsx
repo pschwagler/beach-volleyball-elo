@@ -17,7 +17,7 @@ function App() {
     loading, 
     message, 
     setMessage, 
-    handleRecalculate,
+    handleLoadFromSheets,
     handleCreateSession,
     handleEndSession,
     handleCreateMatch,
@@ -40,13 +40,13 @@ function App() {
     handlePlayerClick,
     handleSideTabClick,
     handleClosePlayer
-  } = usePlayerDetails(rankings, allPlayerNames, setMessage);
+  } = usePlayerDetails(rankings, allPlayerNames, setMessage, matches);
 
   return (
     <>
       <div className="container">
         <HeroHeader />
-        {showControls && <ControlPanel onRecalculate={handleRecalculate} />}
+        {showControls && <ControlPanel onLoadFromSheets={handleLoadFromSheets} />}
         <Alert type={message?.type}>
           {message?.text}
         </Alert>

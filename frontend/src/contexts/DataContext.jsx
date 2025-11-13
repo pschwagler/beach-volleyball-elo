@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { getRankings, getMatches, calculateStats, getSessions, getActiveSession, createSession, lockInSession, createMatch, updateMatch, getPlayers, createPlayer } from '../services/api';
+import { getRankings, getMatches, loadFromSheets, getSessions, getActiveSession, createSession, lockInSession, createMatch, updateMatch, getPlayers, createPlayer } from '../services/api';
 
 const DataContext = createContext();
 
@@ -58,7 +58,7 @@ export const DataProvider = ({ children }) => {
       if (rankingsData.length === 0 && matchesData.length === 0) {
         setMessage({
           type: 'error',
-          text: 'No data found. Click "Recalculate Stats" to load data from Google Sheets.'
+          text: 'No data found. Click "Refresh from Google Sheets" to load data.'
         });
       } else {
         setMessage(null);
@@ -83,7 +83,7 @@ export const DataProvider = ({ children }) => {
       if (error.response?.status === 404) {
         setMessage({
           type: 'error',
-          text: 'Rankings not found. Click "Recalculate Stats" to load data from Google Sheets.'
+          text: 'Rankings not found. Click "Refresh from Google Sheets" to load data.'
         });
         setRankings([]);
       } else {
@@ -107,7 +107,7 @@ export const DataProvider = ({ children }) => {
       if (error.response?.status === 404) {
         setMessage({
           type: 'error',
-          text: 'Matches not found. Click "Recalculate Stats" to load data from Google Sheets.'
+          text: 'Matches not found. Click "Refresh from Google Sheets" to load data.'
         });
         setMatches([]);
       } else {
@@ -121,16 +121,16 @@ export const DataProvider = ({ children }) => {
     }
   };
 
-  const handleRecalculate = async () => {
+  const handleLoadFromSheets = async () => {
     try {
-      setMessage({ type: 'loading', text: 'Recalculating statistics from Google Sheets...' });
-      const result = await calculateStats();
+      setMessage({ type: 'loading', text: 'Loading data from Google Sheets...' });
+      const result = await loadFromSheets();
       setMessage({
         type: 'success',
-        text: `✓ Success! Calculated stats for ${result.player_count} players from ${result.match_count} matches.`
+        text: `✓ Success! Loaded ${result.player_count} players and ${result.match_count} matches from Google Sheets.`
       });
       
-      // Auto-refresh data after calculation
+      // Auto-refresh data after loading
       setTimeout(() => {
         loadAllData();
       }, 1500);
@@ -258,7 +258,7 @@ export const DataProvider = ({ children }) => {
     loadMatches,
     loadPlayers,
     loadAllData,
-    handleRecalculate,
+    handleLoadFromSheets,
     handleCreateSession,
     handleEndSession,
     handleCreateMatch,

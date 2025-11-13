@@ -2,7 +2,7 @@
 Core data models for beach volleyball ELO system.
 """
 
-from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL
+from backend.utils.constants import INITIAL_ELO, USE_POINT_DIFFERENTIAL, K
 
 
 def expectedScore(eloA, eloB):
@@ -259,8 +259,6 @@ class StatsTracker:
     
     def _update_elos(self, match):
         """Calculate and apply ELO changes for all players in the match."""
-        from backend.utils.constants import K
-        
         # Calculate team average ELOs
         team_elos = []
         for team in match.players:

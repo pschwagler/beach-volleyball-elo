@@ -13,9 +13,19 @@ CREATE TABLE IF NOT EXISTS players (
     avg_point_diff REAL NOT NULL DEFAULT 0.0
 );
 
+-- Sessions table: Gaming sessions grouped by date/time
+CREATE TABLE IF NOT EXISTS sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    name TEXT NOT NULL,
+    is_pending INTEGER NOT NULL DEFAULT 1,  -- 1 = pending, 0 = submitted
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Matches table: All match results (denormalized with player names)
 CREATE TABLE IF NOT EXISTS matches (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id INTEGER,  -- NULL for legacy matches
     date TEXT NOT NULL,
     team1_player1_id INTEGER NOT NULL,
     team1_player1_name TEXT NOT NULL,
@@ -29,7 +39,8 @@ CREATE TABLE IF NOT EXISTS matches (
     team2_score INTEGER NOT NULL,
     winner INTEGER NOT NULL,  -- 1 = team1, 2 = team2, -1 = tie
     team1_elo_change REAL,
-    team2_elo_change REAL
+    team2_elo_change REAL,
+    FOREIGN KEY (session_id) REFERENCES sessions(id)
 );
 
 -- Partnership stats: How each player performs WITH each partner (denormalized with names)
@@ -79,6 +90,9 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Indexes for read performance
+CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date DESC);
+CREATE INDEX IF NOT EXISTS idx_sessions_pending ON sessions(is_pending);
+CREATE INDEX IF NOT EXISTS idx_matches_session ON matches(session_id);
 CREATE INDEX IF NOT EXISTS idx_matches_date ON matches(date DESC);
 CREATE INDEX IF NOT EXISTS idx_matches_team1_p1 ON matches(team1_player1_id);
 CREATE INDEX IF NOT EXISTS idx_matches_team1_p2 ON matches(team1_player2_id);

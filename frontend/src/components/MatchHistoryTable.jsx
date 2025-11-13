@@ -36,9 +36,15 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
         <tbody>
           {matchHistory.map((match, idx) => {
             const ratingDisplay = formatNewRating(match['ELO After'], match['ELO Change']);
+            const isActiveSession = match['Session Active'] === true;
             return (
-              <tr key={idx}>
-                <td>{match.Date}</td>
+              <tr key={idx} className={isActiveSession ? 'active-session-row' : ''}>
+                <td>
+                  {match.Date}
+                  {isActiveSession && (
+                    <span className="active-session-badge-small"> Pending</span>
+                  )}
+                </td>
                 <td>
                   <span className="player-name" onClick={() => onPlayerChange(match.Partner)}>
                     {match.Partner}
@@ -60,7 +66,11 @@ export default function MatchHistoryTable({ matchHistory, onPlayerChange }) {
                 </td>
                 <td>{match.Score}</td>
                 <td>
-                  {ratingDisplay}
+                  {isActiveSession ? (
+                    <span style={{fontStyle: 'italic', color: 'var(--gray-600)'}}>Pending</span>
+                  ) : (
+                    ratingDisplay
+                  )}
                 </td>
               </tr>
             );

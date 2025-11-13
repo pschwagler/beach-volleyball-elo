@@ -10,7 +10,23 @@ import { useData } from './contexts/DataContext';
 import { usePlayerDetails } from './hooks/usePlayerDetails';
 
 function App() {
-  const { rankings, matches, loading, message, setMessage, handleRecalculate, allPlayerNames } = useData();
+  const { 
+    rankings, 
+    matches, 
+    activeSession,
+    loading, 
+    message, 
+    setMessage, 
+    handleLoadFromSheets,
+    handleCreateSession,
+    handleEndSession,
+    handleDeleteSession,
+    handleCreateMatch,
+    handleUpdateMatch,
+    handleDeleteMatch,
+    handleCreatePlayer,
+    allPlayerNames 
+  } = useData();
   const [activeTab, setActiveTab] = useState('matches');
 
   // Check if URL contains ?skyball query parameter
@@ -26,13 +42,13 @@ function App() {
     handlePlayerClick,
     handleSideTabClick,
     handleClosePlayer
-  } = usePlayerDetails(rankings, allPlayerNames, setMessage);
+  } = usePlayerDetails(rankings, allPlayerNames, setMessage, matches);
 
   return (
     <>
       <div className="container">
         <HeroHeader />
-        {showControls && <ControlPanel onRecalculate={handleRecalculate} />}
+        {showControls && <ControlPanel onLoadFromSheets={handleLoadFromSheets} />}
         <Alert type={message?.type}>
           {message?.text}
         </Alert>
@@ -43,6 +59,15 @@ function App() {
               matches={matches} 
               onPlayerClick={handlePlayerClick}
               loading={loading}
+              activeSession={activeSession}
+              onCreateSession={handleCreateSession}
+              onEndSession={handleEndSession}
+              onDeleteSession={handleDeleteSession}
+              onCreateMatch={handleCreateMatch}
+              onUpdateMatch={handleUpdateMatch}
+              onDeleteMatch={handleDeleteMatch}
+              onCreatePlayer={handleCreatePlayer}
+              allPlayerNames={allPlayerNames}
             />
           )}
           {activeTab === 'rankings' && (

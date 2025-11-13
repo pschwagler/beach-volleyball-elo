@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { getPlayerStats, getPlayerMatchHistory } from '../services/api';
 import { getFirstPlacePlayer } from '../utils/playerUtils';
 
-export function usePlayerDetails(rankings, allPlayerNames, setMessage) {
+export function usePlayerDetails(rankings, allPlayerNames, setMessage, matches) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [playerStats, setPlayerStats] = useState(null);
   const [playerMatchHistory, setPlayerMatchHistory] = useState(null);
@@ -31,6 +31,26 @@ export function usePlayerDetails(rankings, allPlayerNames, setMessage) {
       }
     }
   }, [rankings, selectedPlayer, setMessage]);
+
+  // Refresh player details when matches change (if a player is selected)
+  useEffect(() => {
+    if (selectedPlayer && matches) {
+      // Silently refresh player data in the background
+      Promise.all([
+        getPlayerStats(selectedPlayer),
+        getPlayerMatchHistory(selectedPlayer)
+      ]).then(([stats, matchHistory]) => {
+        setPlayerStats(stats);
+        setPlayerMatchHistory(matchHistory);
+      }).catch(error => {
+        console.error('Error refreshing player details:', error);
+        setMessage({
+          type: 'error',
+          text: 'Failed to refresh player details. Please close and reopen the player panel.'
+        });
+      });
+    }
+  }, [matches, selectedPlayer, setMessage]);
 
   const handlePlayerClick = async (playerName) => {
     try {

@@ -90,3 +90,41 @@ class CalculateResponse(BaseModel):
     player_count: int
     match_count: int
 
+
+class SessionResponse(BaseModel):
+    """Session data."""
+    id: int
+    date: str
+    name: str
+    is_pending: bool
+    created_at: str
+
+
+class CreateSessionRequest(BaseModel):
+    """Request to create a new session."""
+    date: Optional[str] = None  # If not provided, use current date
+
+
+class EndSessionRequest(BaseModel):
+    """Request to end a session."""
+    session_id: int
+
+
+class CreateMatchRequest(BaseModel):
+    """Request to create a new match."""
+    session_id: int
+    team1_player1: str
+    team1_player2: str
+    team2_player1: str
+    team2_player2: str
+    team1_score: int
+    team2_score: int
+
+
+class CreateMatchResponse(BaseModel):
+    """Response from creating a match."""
+    status: str
+    message: str
+    match_id: int
+    session_id: int
+

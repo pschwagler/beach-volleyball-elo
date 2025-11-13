@@ -1,5 +1,5 @@
 import { X } from 'lucide-react';
-import { Button } from './UI';
+import { Button } from '../ui/UI';
 
 export default function ConfirmationModal({ isOpen, onClose, onConfirm, title, message, confirmText = 'Confirm', cancelText = 'Cancel' }) {
   if (!isOpen) return null;

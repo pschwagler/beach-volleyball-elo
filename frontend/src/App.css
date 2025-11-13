@@ -62,12 +62,337 @@ body {
 .container {
   max-width: 1400px;
   margin: 0 auto;
+  margin-top: 64px; /* Account for fixed navbar */
   background: var(--cream);
   border-radius: 20px;
   box-shadow: var(--shadow-xl);
   padding: 0;
   border: 3px solid var(--sand);
   overflow: hidden;
+}
+
+/* Navbar - Modern Fixed Design */
+.navbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  background: linear-gradient(135deg, rgba(254, 245, 231, 0.98) 0%, rgba(255, 240, 230, 0.98) 50%, rgba(254, 245, 231, 0.98) 100%);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(74, 144, 164, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 0 rgba(255, 107, 53, 0.1) inset;
+}
+
+.navbar-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 24px;
+  height: 64px;
+  position: relative;
+}
+
+.navbar-left {
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-brand {
+  text-decoration: none;
+  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  transition: all 0.2s ease;
+}
+
+.navbar-brand-crown {
+  color: var(--retro-yellow);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(254, 202, 87, 0.4));
+}
+
+.navbar-brand:hover .navbar-brand-crown {
+  color: var(--retro-yellow);
+  transform: scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 4px 8px rgba(254, 202, 87, 0.6));
+}
+
+.navbar-brand:hover {
+  transform: scale(1.02);
+}
+
+.navbar-brand-text {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 1.5em;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: linear-gradient(135deg, var(--sunset-orange) 0%, var(--coral) 50%, var(--retro-yellow) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  text-shadow: 0 2px 8px rgba(255, 107, 53, 0.2);
+  transition: all 0.3s ease;
+}
+
+.navbar-brand:hover .navbar-brand-text {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--sunset-orange) 50%, var(--coral) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  transform: translateY(-1px);
+}
+
+/* Add a subtle retro underline effect */
+.navbar-brand-text::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--sunset-orange), var(--retro-yellow), var(--sunset-orange));
+  border-radius: 2px;
+  opacity: 0.6;
+  transform: scaleX(0);
+  transition: transform 0.3s ease;
+}
+
+.navbar-brand:hover .navbar-brand-text::after {
+  transform: scaleX(1);
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.navbar-menu-group {
+  position: relative;
+}
+
+.navbar-menu-button {
+  background: transparent;
+  color: var(--gray-700);
+  border: none;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  font-size: 0.95em;
+  font-weight: 500;
+  min-height: 40px;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.navbar-menu-button:hover {
+  background: rgba(255, 107, 53, 0.1);
+  color: var(--sunset-orange);
+  transform: none;
+  box-shadow: none;
+}
+
+.navbar-menu-button:active {
+  background: rgba(255, 107, 53, 0.15);
+  transform: none;
+  box-shadow: none;
+}
+
+.navbar-menu-button svg {
+  flex-shrink: 0;
+}
+
+.navbar-icon-with-plus {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navbar-volleyball-icon {
+  color: var(--gray-700);
+  transition: color 0.2s ease;
+}
+
+.navbar-plus-overlay {
+  position: absolute;
+  bottom: -2px;
+  right: -4px;
+  color: white;
+  background: rgba(255, 107, 53, 0.85);
+  border-radius: 50%;
+  padding: 2px;
+  stroke-width: 3;
+  box-shadow: 0 2px 4px rgba(255, 107, 53, 0.3);
+  transition: all 0.2s ease;
+}
+
+.navbar-menu-button:hover .navbar-volleyball-icon {
+  color: var(--sunset-orange);
+}
+
+.navbar-menu-button:hover .navbar-plus-overlay {
+  background: rgba(255, 140, 97, 0.9);
+  transform: scale(1.1);
+}
+
+.navbar-chevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+  margin-left: 4px;
+}
+
+.navbar-chevron.open {
+  transform: rotate(180deg);
+}
+
+.navbar-menu-label {
+  display: inline-block;
+}
+
+.navbar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: white;
+  border: 1px solid rgba(74, 144, 164, 0.2);
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 1001;
+  min-width: 220px;
+  overflow: hidden;
+  animation: slideDown 0.2s ease-out;
+}
+
+.navbar-dropdown-menu {
+  right: 0;
+}
+
+.navbar-dropdown-user {
+  right: 0;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.navbar-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 16px;
+  background: white;
+  border: none;
+  border-bottom: 1px solid rgba(74, 144, 164, 0.1);
+  color: var(--gray-700);
+  font-size: 0.95em;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  box-shadow: none;
+  text-transform: none;
+  letter-spacing: normal;
+  min-height: auto;
+  justify-content: flex-start;
+}
+
+.navbar-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.navbar-dropdown-item:hover {
+  background: rgba(255, 107, 53, 0.08);
+  color: var(--sunset-orange);
+  transform: none;
+  box-shadow: none;
+}
+
+.navbar-dropdown-item:active {
+  background: rgba(255, 107, 53, 0.12);
+  transform: none;
+  box-shadow: none;
+}
+
+.navbar-dropdown-item svg {
+  flex-shrink: 0;
+  color: var(--gray-600);
+  transition: color 0.15s ease;
+  width: 18px;
+  height: 18px;
+  text-align: center;
+}
+
+.navbar-dropdown-item:hover svg {
+  color: var(--sunset-orange);
+}
+
+.navbar-dropdown-item-danger {
+  color: var(--danger);
+}
+
+.navbar-dropdown-item-danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--danger);
+}
+
+.navbar-dropdown-item-danger svg {
+  color: var(--danger);
+}
+
+/* Dropdown Sections */
+.navbar-dropdown-section {
+  padding: 4px 0;
+}
+
+.navbar-dropdown-header {
+  padding: 8px 16px 4px 16px;
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--gray-600);
+  margin-bottom: 4px;
+  text-align: left;
+}
+
+.navbar-dropdown-divider {
+  height: 1px;
+  background: rgba(74, 144, 164, 0.15);
+  margin: 8px 0;
+}
+
+.navbar-dropdown-item-league {
+  font-weight: 600;
+}
+
+.navbar-dropdown-item-league:hover {
+  background: rgba(74, 144, 164, 0.12);
+  color: var(--ocean-blue);
 }
 
 /* Hero Header with rotating images */
@@ -897,7 +1222,37 @@ tbody tr:hover .sticky-col {
     padding-bottom: max(10px, env(safe-area-inset-bottom));
   }
 
+  /* Navbar Mobile */
+  .navbar-container {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  .navbar-brand-text {
+    font-size: 1.2em;
+    letter-spacing: 0.06em;
+  }
+
+  .navbar-menu-button {
+    padding: 6px 10px;
+    font-size: 0.9em;
+  }
+
+  .navbar-menu-label {
+    display: none; /* Hide labels on mobile */
+  }
+
+  .navbar-dropdown {
+    min-width: 200px;
+  }
+
+  .navbar-dropdown-item {
+    padding: 12px 16px;
+    font-size: 0.9em;
+  }
+
   .container {
+    margin-top: 56px; /* Smaller navbar height on mobile */
     border-radius: 12px;
     border-width: 2px;
   }
@@ -1126,16 +1481,42 @@ tbody tr:hover .sticky-col {
     padding-bottom: max(8px, env(safe-area-inset-bottom));
   }
 
+  /* Navbar Extra Small */
+  .navbar-container {
+    padding: 0 12px;
+    height: 52px;
+  }
+
+  .navbar-brand-text {
+    font-size: 1.1em;
+    letter-spacing: 0.05em;
+  }
+
+  .navbar-menu-button {
+    padding: 6px 8px;
+    font-size: 0.85em;
+  }
+
+  .navbar-dropdown {
+    min-width: 180px;
+  }
+
+  .navbar-dropdown-item {
+    padding: 10px 14px;
+    font-size: 0.85em;
+  }
+
+  .container {
+    margin-top: 52px; /* Even smaller navbar on very small screens */
+    border-width: 2px;
+  }
+
   h1 {
     font-size: 1.5em;
   }
 
   .hero-header {
     height: 150px;
-  }
-
-  .container {
-    border-width: 2px;
   }
 
   .container > *:not(.hero-header) {

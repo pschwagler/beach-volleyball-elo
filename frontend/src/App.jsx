@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import './App.css';
+import NavBar from './components/NavBar';
 import HeroHeader from './components/HeroHeader';
 import ControlPanel from './components/ControlPanel';
 import RankingsTable from './components/RankingsTable';
@@ -10,6 +11,8 @@ import { useData } from './contexts/DataContext';
 import { usePlayerDetails } from './hooks/usePlayerDetails';
 
 function App() {
+  // Simple login state - can be replaced with proper auth context later
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const { 
     rankings, 
     matches, 
@@ -44,8 +47,20 @@ function App() {
     handleClosePlayer
   } = usePlayerDetails(rankings, allPlayerNames, setMessage, matches);
 
+  const handleSignOut = () => {
+    setIsLoggedIn(false);
+    // Add any additional sign out logic here
+  };
+
+  // Mock user leagues - replace with actual data later
+  const userLeagues = isLoggedIn ? [
+    { id: 1, name: 'Summer League 2024' },
+    { id: 2, name: 'Weekend Warriors' },
+  ] : [];
+
   return (
     <>
+      <NavBar isLoggedIn={isLoggedIn} onSignOut={handleSignOut} userLeagues={userLeagues} />
       <div className="container">
         <HeroHeader />
         {showControls && <ControlPanel onLoadFromSheets={handleLoadFromSheets} />}

@@ -107,7 +107,21 @@ body {
   color: inherit;
   display: inline-flex;
   align-items: center;
+  gap: 10px;
   transition: all 0.2s ease;
+}
+
+.navbar-brand-crown {
+  color: var(--retro-yellow);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 2px 4px rgba(254, 202, 87, 0.4));
+}
+
+.navbar-brand:hover .navbar-brand-crown {
+  color: var(--retro-yellow);
+  transform: scale(1.1) rotate(5deg);
+  filter: drop-shadow(0 4px 8px rgba(254, 202, 87, 0.6));
 }
 
 .navbar-brand:hover {

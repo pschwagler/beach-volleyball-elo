@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { RefreshCw, ExternalLink, Loader2, MessageCircle, Download } from 'lucide-react';
-import { Button } from './UI';
-import ConfirmationModal from './ConfirmationModal';
-import { exportMatchesToCSV } from '../services/api';
+import { Button } from '../ui/UI';
+import ConfirmationModal from '../modal/ConfirmationModal';
+import { exportMatchesToCSV } from '../../services/api';
 
 const GOOGLE_SHEETS_URL = 'https://docs.google.com/spreadsheets/d/1KZhd5prjzDjDTJCvg0b1fxVAM-uGDBxsHJJwKBKrBIA/edit?usp=sharing';
 

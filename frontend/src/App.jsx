@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import './App.css';
-import NavBar from './components/NavBar';
-import HeroHeader from './components/HeroHeader';
-import ControlPanel from './components/ControlPanel';
-import RankingsTable from './components/RankingsTable';
-import MatchesTable from './components/MatchesTable';
-import PlayerDetailsPanel from './components/PlayerDetailsPanel';
-import { Alert, Tabs } from './components/UI';
+import NavBar from './components/layout/NavBar';
+import HeroHeader from './components/layout/HeroHeader';
+import ControlPanel from './components/control/ControlPanel';
+import RankingsTable from './components/rankings/RankingsTable';
+import MatchesTable from './components/match/MatchesTable';
+import PlayerDetailsPanel from './components/player/PlayerDetailsPanel';
+import { Alert, Tabs } from './components/ui/UI';
 import { useData } from './contexts/DataContext';
 import { usePlayerDetails } from './hooks/usePlayerDetails';
 
@@ -30,7 +30,7 @@ function App() {
     handleCreatePlayer,
     allPlayerNames 
   } = useData();
-  const [activeTab, setActiveTab] = useState('matches');
+  const [activeTab, setActiveTab] = useState('rankings');
 
   // Check if URL contains ?skyball query parameter
   const urlParams = new URLSearchParams(window.location.search);

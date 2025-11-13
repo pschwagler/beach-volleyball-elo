@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Crown } from 'lucide-react';
-import { Tooltip } from './UI';
-import { getFirstPlacePlayer, sortPlayersDefault } from '../utils/playerUtils';
+import { Tooltip } from '../ui/UI';
+import { getFirstPlacePlayer, sortPlayersDefault } from '../../utils/playerUtils';
 
 export default function RankingsTable({ rankings, onPlayerClick, loading }) {
   const [sortConfig, setSortConfig] = useState({ column: 'Points', ascending: false });
@@ -63,6 +63,11 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
               Points{getSortArrow('Points')}
             </Tooltip>
           </th>
+          <th onClick={() => handleSort('ELO')}>
+            <Tooltip text="Current skill rating (higher is better)">
+              Rating{getSortArrow('ELO')}
+            </Tooltip>
+          </th>
           <th onClick={() => handleSort('Games')}>
             <Tooltip text="Total number of games played this season">
               Games{getSortArrow('Games')}
@@ -88,11 +93,6 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
               Avg Pt Diff{getSortArrow('Avg Pt Diff')}
             </Tooltip>
           </th>
-          <th onClick={() => handleSort('ELO')}>
-            <Tooltip text="Current skill rating (higher is better)">
-              Rating{getSortArrow('ELO')}
-            </Tooltip>
-          </th>
         </tr>
       </thead>
       <tbody>
@@ -107,12 +107,12 @@ export default function RankingsTable({ rankings, onPlayerClick, loading }) {
               </span>
             </td>
             <td>{player.Points}</td>
+            <td>{player.ELO}</td>
             <td>{player.Games}</td>
             <td>{(player['Win Rate'] * 100).toFixed(1)}%</td>
             <td>{player.Wins}</td>
             <td>{player.Losses}</td>
             <td>{formatPtDiff(player['Avg Pt Diff'])}</td>
-            <td>{player.ELO}</td>
           </tr>
         ))}
       </tbody>

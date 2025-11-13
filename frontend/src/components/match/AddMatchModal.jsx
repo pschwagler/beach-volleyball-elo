@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
-import { Button } from './UI';
-import PlayerDropdown from './PlayerDropdown';
-import ConfirmationModal from './ConfirmationModal';
+import { Button } from '../ui/UI';
+import PlayerDropdown from '../player/PlayerDropdown';
+import ConfirmationModal from '../modal/ConfirmationModal';
 
 // Constants
 const INITIAL_FORM_STATE = {

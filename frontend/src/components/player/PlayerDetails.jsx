@@ -1,8 +1,8 @@
 import { X } from 'lucide-react';
-import { Button } from './UI';
+import { Button } from '../ui/UI';
 import PlayerSelector from './PlayerSelector';
 import PlayerOverview from './PlayerOverview';
-import MatchHistoryTable from './MatchHistoryTable';
+import MatchHistoryTable from '../match/MatchHistoryTable';
 import PlayerStatsTable from './PlayerStatsTable';
 
 export default function PlayerDetails({ playerName, stats, matchHistory, onClose, allPlayers, onPlayerChange }) {

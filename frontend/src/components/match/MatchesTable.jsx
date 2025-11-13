@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Plus } from 'lucide-react';
-import { MatchCard, Button } from './UI';
+import { Button } from '../ui/UI';
+import MatchCard from './MatchCard';
 import AddMatchModal from './AddMatchModal';
-import ConfirmationModal from './ConfirmationModal';
-import ActiveSessionPanel from './ActiveSessionPanel';
+import ConfirmationModal from '../modal/ConfirmationModal';
+import ActiveSessionPanel from '../session/ActiveSessionPanel';
 
 export default function MatchesTable({ 
   matches, 

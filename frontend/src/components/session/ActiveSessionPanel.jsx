@@ -1,5 +1,5 @@
 import { Plus, Save, Trophy, Users } from 'lucide-react';
-import { MatchCard } from './UI';
+import MatchCard from '../match/MatchCard';
 import SessionHeader from './SessionHeader';
 import SessionActions from './SessionActions';
 

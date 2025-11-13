@@ -1584,6 +1584,16 @@ tbody tr:hover .sticky-col {
   padding: 8px 0;
 }
 
+/* Form Error */
+.form-error {
+  color: #dc2626;
+  background-color: #fee2e2;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
 /* Session Controls */
 .session-controls-start {
   margin-bottom: 28px;
@@ -1707,60 +1717,81 @@ tbody tr:hover .sticky-col {
 /* Responsive modals */
 @media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px;
+    padding: 8px;
+    align-items: flex-start;
+    padding-top: 20px;
   }
 
   .modal-content {
-    max-height: 95vh;
+    max-height: calc(100vh - 40px);
   }
 
   .modal-header {
-    padding: 20px;
+    padding: 14px 16px;
   }
 
   .modal-header h2 {
-    font-size: 1.25em;
+    font-size: 1.15em;
   }
 
   .modal-body {
-    padding: 20px;
+    padding: 16px;
   }
 
   .modal-actions {
-    padding: 16px 20px;
+    padding: 12px 16px;
     flex-direction: column;
+    gap: 8px;
   }
 
   .modal-actions button {
     width: 100%;
     min-width: unset;
+    padding: 10px 16px;
   }
 
   .add-match-form {
-    padding: 20px;
-    gap: 20px;
+    padding: 14px;
+    gap: 14px;
   }
 
   .team-section {
-    padding: 16px;
+    padding: 12px;
+    gap: 8px;
   }
 
   .team-inputs-row {
-    gap: 10px;
+    gap: 8px;
   }
 
   .score-input {
-    width: 70px;
-    font-size: 2em;
+    width: 60px;
+    font-size: 1.8em;
   }
 
   .team-header {
     gap: 8px;
+    margin-bottom: 6px;
+  }
+  
+  .team-section h3 {
+    font-size: 0.95em;
   }
 
   .winner-badge {
-    padding: 5px 12px;
-    font-size: 0.75em;
+    padding: 4px 10px;
+    font-size: 0.7em;
+  }
+  
+  .vs-divider {
+    font-size: 1.2em;
+    padding: 4px 0;
+  }
+  
+  .form-error {
+    padding: 10px;
+    font-size: 13px;
+    margin-bottom: 12px;
   }
 
   .session-controls-start {
@@ -1789,48 +1820,78 @@ tbody tr:hover .sticky-col {
 }
 
 @media (max-width: 576px) {
+  .modal-overlay {
+    padding: 4px;
+    padding-top: 10px;
+  }
+  
+  .modal-content {
+    max-height: calc(100vh - 20px);
+  }
+
   .modal-header {
-    padding: 16px;
+    padding: 12px 14px;
   }
 
   .modal-header h2 {
-    font-size: 1.1em;
+    font-size: 1em;
   }
 
   .modal-body {
-    padding: 16px;
-  }
-
-  .modal-actions {
-    padding: 12px 16px;
-  }
-
-  .add-match-form {
-    padding: 16px;
-    gap: 16px;
-  }
-
-  .team-section {
     padding: 12px;
   }
 
-  .team-inputs-row {
+  .modal-actions {
+    padding: 10px 14px;
     gap: 8px;
+  }
+  
+  .modal-actions button {
+    padding: 10px 14px;
+  }
+
+  .add-match-form {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .team-section {
+    padding: 10px;
+    gap: 6px;
+  }
+
+  .team-inputs-row {
+    gap: 6px;
   }
 
   .score-input {
-    width: 60px;
-    font-size: 1.75em;
+    width: 50px;
+    font-size: 1.5em;
   }
 
   .team-header {
     gap: 6px;
-    margin-bottom: 10px;
+    margin-bottom: 4px;
+  }
+  
+  .team-section h3 {
+    font-size: 0.9em;
   }
 
   .winner-badge {
-    padding: 4px 10px;
-    font-size: 0.7em;
+    padding: 3px 8px;
+    font-size: 0.65em;
+  }
+  
+  .vs-divider {
+    font-size: 1em;
+    padding: 2px 0;
+  }
+  
+  .form-error {
+    padding: 8px 10px;
+    font-size: 12px;
+    margin-bottom: 10px;
   }
 
   .session-controls-start {

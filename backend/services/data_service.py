@@ -171,9 +171,10 @@ def calculate_stats() -> Dict:
         conn.execute("DELETE FROM players")
         
         # Build player ID map and insert players
+        # Sort by name to ensure consistent player IDs across runs
         player_id_map = {}
         player_data = []
-        for player_id, (name, stats) in enumerate(tracker.players.items(), start=1):
+        for player_id, (name, stats) in enumerate(sorted(tracker.players.items()), start=1):
             player_id_map[name] = player_id
             player_data.append((
                 player_id, name, round(stats.elo, 2), stats.game_count, stats.win_count,
@@ -186,7 +187,14 @@ def calculate_stats() -> Dict:
             player_data
         )
         
-        # Update match ELO changes
+        # Update player IDs in matches table to match new player IDs
+        for name, player_id in player_id_map.items():
+            conn.execute("UPDATE matches SET team1_player1_id = ? WHERE team1_player1_name = ?", (player_id, name))
+            conn.execute("UPDATE matches SET team1_player2_id = ? WHERE team1_player2_name = ?", (player_id, name))
+            conn.execute("UPDATE matches SET team2_player1_id = ? WHERE team2_player1_name = ?", (player_id, name))
+            conn.execute("UPDATE matches SET team2_player2_id = ? WHERE team2_player2_name = ?", (player_id, name))
+        
+        # Update match ELO changes (only for locked-in sessions)
         for match in match_list:
             team1_p1_name, team1_p2_name = match.players[0]
             team2_p1_name, team2_p2_name = match.players[1]
@@ -195,11 +203,13 @@ def calculate_stats() -> Dict:
                 UPDATE matches 
                 SET team1_elo_change = ?, team2_elo_change = ?
                 WHERE id IN (
-                    SELECT id FROM matches
-                    WHERE team1_player1_name = ? AND team1_player2_name = ?
-                      AND team2_player1_name = ? AND team2_player2_name = ?
-                      AND team1_score = ? AND team2_score = ?
-                      AND date = ?
+                    SELECT m.id FROM matches m
+                    LEFT JOIN sessions s ON m.session_id = s.id
+                    WHERE m.team1_player1_name = ? AND m.team1_player2_name = ?
+                      AND m.team2_player1_name = ? AND m.team2_player2_name = ?
+                      AND m.team1_score = ? AND m.team2_score = ?
+                      AND m.date = ?
+                      AND (m.session_id IS NULL OR s.is_pending = 0)
                     LIMIT 1
                 )
             """, (
@@ -212,13 +222,16 @@ def calculate_stats() -> Dict:
             ))
         
         # Get match IDs for elo_history (build map in order)
+        # Only include locked-in sessions to match load_matches_from_database()
         match_id_map = {}
         cursor = conn.execute("""
-            SELECT id, team1_player1_name, team1_player2_name,
-                   team2_player1_name, team2_player2_name,
-                   team1_score, team2_score, date
-            FROM matches
-            ORDER BY id ASC
+            SELECT m.id, m.team1_player1_name, m.team1_player2_name,
+                   m.team2_player1_name, m.team2_player2_name,
+                   m.team1_score, m.team2_score, m.date
+            FROM matches m
+            LEFT JOIN sessions s ON m.session_id = s.id
+            WHERE m.session_id IS NULL OR s.is_pending = 0
+            ORDER BY m.id ASC
         """)
         
         db_matches = cursor.fetchall()
@@ -346,7 +359,7 @@ def get_rankings() -> List[Dict]:
                 "Wins": row["wins"],
                 "Losses": row["losses"],
                 "Avg Pt Diff": row["avg_point_diff"],
-                "ELO": int(row["current_elo"])
+                "ELO": round(row["current_elo"])
             })
         
         return results
@@ -395,7 +408,7 @@ def get_player_stats(player_name: str) -> Optional[Dict]:
         overview = {
             "ranking": ranking,
             "points": player_row["points"],
-            "rating": int(player_row["current_elo"])
+            "rating": round(player_row["current_elo"])
         }
         
         # Build results list

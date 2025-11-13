@@ -153,14 +153,7 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
 
         <form onSubmit={handleSubmit} className="add-match-form">
           {formError && (
-            <div className="form-error" style={{ 
-              color: '#dc2626', 
-              backgroundColor: '#fee2e2', 
-              padding: '12px', 
-              borderRadius: '6px', 
-              marginBottom: '16px',
-              fontSize: '14px'
-            }}>
+            <div className="form-error">
               {formError}
             </div>
           )}

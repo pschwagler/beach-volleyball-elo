@@ -3,88 +3,125 @@ import { X } from 'lucide-react';
 import { Button } from './UI';
 import PlayerDropdown from './PlayerDropdown';
 
+// Constants
+const INITIAL_FORM_STATE = {
+  team1Player1: '',
+  team1Player2: '',
+  team2Player1: '',
+  team2Player2: '',
+  team1Score: '',
+  team2Score: ''
+};
+
+// Helper functions
+const mapEditMatchToFormData = (editMatch) => ({
+  team1Player1: editMatch['Team 1 Player 1'] || '',
+  team1Player2: editMatch['Team 1 Player 2'] || '',
+  team2Player1: editMatch['Team 2 Player 1'] || '',
+  team2Player2: editMatch['Team 2 Player 2'] || '',
+  team1Score: editMatch['Team 1 Score']?.toString() || '',
+  team2Score: editMatch['Team 2 Score']?.toString() || ''
+});
+
+const validateFormFields = (formData) => {
+  if (!formData.team1Player1 || !formData.team1Player2 || !formData.team2Player1 || !formData.team2Player2 || !formData.team1Score || !formData.team2Score) {
+    return { isValid: false, errorMessage: 'Please fill in all fields' };
+  }
+  return { isValid: true, errorMessage: null };
+};
+
+const validateScores = (formData) => {
+  const score1 = parseInt(formData.team1Score);
+  const score2 = parseInt(formData.team2Score);
+  
+  if (isNaN(score1) || isNaN(score2) || score1 < 0 || score2 < 0) {
+    return { isValid: false, errorMessage: 'Please enter valid scores' };
+  }
+  
+  return { isValid: true, errorMessage: null, score1, score2 };
+};
+
 export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerNames, onCreatePlayer, editMatch = null }) {
-  const [team1Player1, setTeam1Player1] = useState('');
-  const [team1Player2, setTeam1Player2] = useState('');
-  const [team2Player1, setTeam2Player1] = useState('');
-  const [team2Player2, setTeam2Player2] = useState('');
-  const [team1Score, setTeam1Score] = useState('');
-  const [team2Score, setTeam2Score] = useState('');
+  const [formData, setFormData] = useState(INITIAL_FORM_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(null);
+
+  // Handle any field change
+  const handleFieldChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear error when user starts typing
+    if (formError) setFormError(null);
+  };
 
   // Handle player selection with duplicate prevention
-  const handlePlayerChange = (setter, newPlayer) => {
+  const handlePlayerChange = (field, newPlayer) => {
+    // Clear error when user starts typing
+    if (formError) setFormError(null);
+    
     // If a player is selected, remove them from other positions
     if (newPlayer) {
-      if (team1Player1 === newPlayer && setter !== setTeam1Player1) setTeam1Player1('');
-      if (team1Player2 === newPlayer && setter !== setTeam1Player2) setTeam1Player2('');
-      if (team2Player1 === newPlayer && setter !== setTeam2Player1) setTeam2Player1('');
-      if (team2Player2 === newPlayer && setter !== setTeam2Player2) setTeam2Player2('');
+      setFormData(prev => {
+        const updated = { ...prev, [field]: newPlayer };
+        // Clear the player from other positions if they're already selected
+        Object.keys(updated).forEach(key => {
+          if (key !== field && key.includes('Player') && updated[key] === newPlayer) {
+            updated[key] = '';
+          }
+        });
+        return updated;
+      });
+    } else {
+      setFormData(prev => ({ ...prev, [field]: newPlayer }));
     }
-    setter(newPlayer);
   };
 
   // Pre-populate fields when editing
   useEffect(() => {
     if (editMatch) {
-      setTeam1Player1(editMatch['Team 1 Player 1'] || '');
-      setTeam1Player2(editMatch['Team 1 Player 2'] || '');
-      setTeam2Player1(editMatch['Team 2 Player 1'] || '');
-      setTeam2Player2(editMatch['Team 2 Player 2'] || '');
-      setTeam1Score(editMatch['Team 1 Score']?.toString() || '');
-      setTeam2Score(editMatch['Team 2 Score']?.toString() || '');
+      setFormData(mapEditMatchToFormData(editMatch));
     } else {
-      // Reset when not editing
-      setTeam1Player1('');
-      setTeam1Player2('');
-      setTeam2Player1('');
-      setTeam2Player2('');
-      setTeam1Score('');
-      setTeam2Score('');
+      setFormData(INITIAL_FORM_STATE);
     }
+    setFormError(null);
   }, [editMatch, isOpen]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate all fields are filled
-    if (!team1Player1 || !team1Player2 || !team2Player1 || !team2Player2 || !team1Score || !team2Score) {
-      alert('Please fill in all fields');
+    // Validate all fields
+    const fieldsValidation = validateFormFields(formData);
+    if (!fieldsValidation.isValid) {
+      setFormError(fieldsValidation.errorMessage);
       return;
     }
 
-    // Validate scores are numbers
-    const score1 = parseInt(team1Score);
-    const score2 = parseInt(team2Score);
-    if (isNaN(score1) || isNaN(score2) || score1 < 0 || score2 < 0) {
-      alert('Please enter valid scores');
+    // Validate scores
+    const scoresValidation = validateScores(formData);
+    if (!scoresValidation.isValid) {
+      setFormError(scoresValidation.errorMessage);
       return;
     }
 
     setIsSubmitting(true);
     try {
       await onSubmit({
-        team1_player1: team1Player1,
-        team1_player2: team1Player2,
-        team2_player1: team2Player1,
-        team2_player2: team2Player2,
-        team1_score: score1,
-        team2_score: score2
+        team1_player1: formData.team1Player1,
+        team1_player2: formData.team1Player2,
+        team2_player1: formData.team2Player1,
+        team2_player2: formData.team2Player2,
+        team1_score: scoresValidation.score1,
+        team2_score: scoresValidation.score2
       }, editMatch ? editMatch['Match ID'] : null);
 
       // Reset form only if not editing (edit mode will close and reset via useEffect)
       if (!editMatch) {
-        setTeam1Player1('');
-        setTeam1Player2('');
-        setTeam2Player1('');
-        setTeam2Player2('');
-        setTeam1Score('');
-        setTeam2Score('');
+        setFormData(INITIAL_FORM_STATE);
       }
       
       onClose();
     } catch (error) {
       console.error('Error submitting match:', error);
+      setFormError('Failed to submit match. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
@@ -94,17 +131,15 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
 
   // Get list of selected players for each dropdown to exclude
   const getExcludedPlayers = (currentPlayer) => {
-    const allSelected = [team1Player1, team1Player2, team2Player1, team2Player2];
+    const allSelected = [formData.team1Player1, formData.team1Player2, formData.team2Player1, formData.team2Player2];
     return allSelected.filter(player => player && player !== currentPlayer);
   };
 
   // Determine winner based on scores
-  const score1 = parseInt(team1Score) || 0;
-  const score2 = parseInt(team2Score) || 0;
+  const score1 = parseInt(formData.team1Score) || 0;
+  const score2 = parseInt(formData.team2Score) || 0;
   const team1IsWinner = score1 > score2 && score2 > 0;
   const team2IsWinner = score2 > score1 && score1 > 0;
-
-  const winnerBadgeClass = 'winner-badge';
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -117,87 +152,52 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
         </div>
 
         <form onSubmit={handleSubmit} className="add-match-form">
-          <div className="team-section">
-            <div className="team-header">
-              <h3>Team 1</h3>
-              {team1IsWinner && (
-                <div className={winnerBadgeClass}>
-                  Winner
-                </div>
-              )}
+          {formError && (
+            <div className="form-error" style={{ 
+              color: '#dc2626', 
+              backgroundColor: '#fee2e2', 
+              padding: '12px', 
+              borderRadius: '6px', 
+              marginBottom: '16px',
+              fontSize: '14px'
+            }}>
+              {formError}
             </div>
-            <div className="team-inputs-row">
-              <div className="player-inputs">
-                <PlayerDropdown
-                  value={team1Player1}
-                  onChange={(player) => handlePlayerChange(setTeam1Player1, player)}
-                  allPlayerNames={allPlayerNames || []}
-                  onCreatePlayer={onCreatePlayer}
-                  placeholder="Player 1"
-                  excludePlayers={getExcludedPlayers(team1Player1)}
-                />
-                <PlayerDropdown
-                  value={team1Player2}
-                  onChange={(player) => handlePlayerChange(setTeam1Player2, player)}
-                  allPlayerNames={allPlayerNames || []}
-                  onCreatePlayer={onCreatePlayer}
-                  placeholder="Player 2"
-                  excludePlayers={getExcludedPlayers(team1Player2)}
-                />
-              </div>
-              <input
-                type="number"
-                min="0"
-                value={team1Score}
-                onChange={(e) => setTeam1Score(e.target.value)}
-                placeholder="0"
-                className="score-input"
-                required
-              />
-            </div>
-          </div>
+          )}
+
+          <TeamSection
+            teamNumber={1}
+            player1Value={formData.team1Player1}
+            player2Value={formData.team1Player2}
+            scoreValue={formData.team1Score}
+            player1Field="team1Player1"
+            player2Field="team1Player2"
+            scoreField="team1Score"
+            isWinner={team1IsWinner}
+            onPlayerChange={handlePlayerChange}
+            onScoreChange={handleFieldChange}
+            allPlayerNames={allPlayerNames}
+            onCreatePlayer={onCreatePlayer}
+            getExcludedPlayers={getExcludedPlayers}
+          />
 
           <div className="vs-divider">VS</div>
 
-          <div className="team-section">
-            <div className="team-header">
-              <h3>Team 2</h3>
-              {team2IsWinner && (
-                <div className={winnerBadgeClass}>
-                  Winner
-                </div>
-              )}
-            </div>
-            <div className="team-inputs-row">
-              <div className="player-inputs">
-                <PlayerDropdown
-                  value={team2Player1}
-                  onChange={(player) => handlePlayerChange(setTeam2Player1, player)}
-                  allPlayerNames={allPlayerNames || []}
-                  onCreatePlayer={onCreatePlayer}
-                  placeholder="Player 1"
-                  excludePlayers={getExcludedPlayers(team2Player1)}
-                />
-                <PlayerDropdown
-                  value={team2Player2}
-                  onChange={(player) => handlePlayerChange(setTeam2Player2, player)}
-                  allPlayerNames={allPlayerNames || []}
-                  onCreatePlayer={onCreatePlayer}
-                  placeholder="Player 2"
-                  excludePlayers={getExcludedPlayers(team2Player2)}
-                />
-              </div>
-              <input
-                type="number"
-                min="0"
-                value={team2Score}
-                onChange={(e) => setTeam2Score(e.target.value)}
-                placeholder="0"
-                className="score-input"
-                required
-              />
-            </div>
-          </div>
+          <TeamSection
+            teamNumber={2}
+            player1Value={formData.team2Player1}
+            player2Value={formData.team2Player2}
+            scoreValue={formData.team2Score}
+            player1Field="team2Player1"
+            player2Field="team2Player2"
+            scoreField="team2Score"
+            isWinner={team2IsWinner}
+            onPlayerChange={handlePlayerChange}
+            onScoreChange={handleFieldChange}
+            allPlayerNames={allPlayerNames}
+            onCreatePlayer={onCreatePlayer}
+            getExcludedPlayers={getExcludedPlayers}
+          />
 
           <div className="modal-actions">
             <Button type="button" onClick={onClose} disabled={isSubmitting}>
@@ -213,3 +213,61 @@ export default function AddMatchModal({ isOpen, onClose, onSubmit, allPlayerName
   );
 }
 
+// Internal component to reduce duplication
+function TeamSection({ 
+  teamNumber, 
+  player1Value, 
+  player2Value, 
+  scoreValue,
+  player1Field,
+  player2Field,
+  scoreField,
+  isWinner, 
+  onPlayerChange, 
+  onScoreChange,
+  allPlayerNames,
+  onCreatePlayer,
+  getExcludedPlayers
+}) {
+  return (
+    <div className="team-section">
+      <div className="team-header">
+        <h3>Team {teamNumber}</h3>
+        {isWinner && (
+          <div className="winner-badge">
+            Winner
+          </div>
+        )}
+      </div>
+      <div className="team-inputs-row">
+        <div className="player-inputs">
+          <PlayerDropdown
+            value={player1Value}
+            onChange={(player) => onPlayerChange(player1Field, player)}
+            allPlayerNames={allPlayerNames || []}
+            onCreatePlayer={onCreatePlayer}
+            placeholder="Player 1"
+            excludePlayers={getExcludedPlayers(player1Value)}
+          />
+          <PlayerDropdown
+            value={player2Value}
+            onChange={(player) => onPlayerChange(player2Field, player)}
+            allPlayerNames={allPlayerNames || []}
+            onCreatePlayer={onCreatePlayer}
+            placeholder="Player 2"
+            excludePlayers={getExcludedPlayers(player2Value)}
+          />
+        </div>
+        <input
+          type="number"
+          min="0"
+          value={scoreValue}
+          onChange={(e) => onScoreChange(scoreField, e.target.value)}
+          placeholder="0"
+          className="score-input"
+          required
+        />
+      </div>
+    </div>
+  );
+}

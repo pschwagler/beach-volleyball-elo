@@ -2,9 +2,14 @@
 API route handlers for the Beach Volleyball ELO system.
 """
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
-from backend.services import data_service, sheets_service, calculation_service
+from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
+from backend.api.auth_dependencies import get_current_user
+from backend.models.schemas import (
+    SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
+    CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse
+)
 import httpx
 import os
 from typing import Optional, Dict, Any
@@ -798,4 +803,343 @@ async def delete_match(match_id: int):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error deleting match: {str(e)}")
+
+
+# Authentication endpoints
+
+@router.post("/api/auth/signup", response_model=Dict[str, Any])
+async def signup(request: SignupRequest):
+    """
+    Create a new user account.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567",
+            "password": "optional_password",  // Optional
+            "name": "John Doe",  // Optional
+            "email": "john@example.com"  // Optional
+        }
+    
+    Returns:
+        dict: User ID and status
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        
+        # Hash password if provided
+        password_hash = None
+        if request.password:
+            password_hash = auth_service.hash_password(request.password)
+        
+        # Create user
+        user_id = user_service.create_user(
+            phone_number=phone_number,
+            password_hash=password_hash,
+            name=request.name,
+            email=request.email
+        )
+        
+        return {
+            "status": "success",
+            "message": "User created successfully. Please verify your phone number.",
+            "user_id": user_id,
+            "phone_number": phone_number
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+
+
+@router.post("/api/auth/login", response_model=AuthResponse)
+async def login(request: LoginRequest):
+    """
+    Login with phone number and password.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567",
+            "password": "user_password"
+        }
+    
+    Returns:
+        AuthResponse: JWT token and user info
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        
+        # Get verified user
+        user = user_service.get_verified_user_by_phone(phone_number)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid phone number or user not verified"
+            )
+        
+        # Check if user has a password
+        if not user["password_hash"]:
+            raise HTTPException(
+                status_code=400,
+                detail="This account does not have a password. Please use SMS login."
+            )
+        
+        # Verify password
+        if not auth_service.verify_password(request.password, user["password_hash"]):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid password"
+            )
+        
+        # Create JWT token
+        token_data = {
+            "user_id": user["id"],
+            "phone_number": user["phone_number"]
+        }
+        access_token = auth_service.create_access_token(data=token_data)
+        
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user["phone_number"],
+            is_verified=user["is_verified"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+
+@router.post("/api/auth/send-verification", response_model=Dict[str, Any])
+async def send_verification(request: CheckPhoneRequest):
+    """
+    Send SMS verification code to phone number.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567"
+        }
+    
+    Returns:
+        dict: Status message
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        
+        # Generate verification code
+        code = auth_service.generate_verification_code()
+        
+        # Save code to database
+        success = user_service.create_verification_code(phone_number, code)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create verification code"
+            )
+        
+        # Send SMS
+        sms_sent = auth_service.send_sms_verification(phone_number, code)
+        if not sms_sent:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to send SMS. Please check Twilio configuration."
+            )
+        
+        return {
+            "status": "success",
+            "message": "Verification code sent successfully"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending verification: {str(e)}")
+
+
+@router.post("/api/auth/verify-phone", response_model=AuthResponse)
+async def verify_phone(request: VerifyPhoneRequest):
+    """
+    Verify phone number with code (for signup).
+    
+    Request body:
+        {
+            "phone_number": "+15551234567",
+            "code": "123456"
+        }
+    
+    Returns:
+        AuthResponse: JWT token and user info
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        
+        # Get user (unverified)
+        user = user_service.get_user_by_phone(phone_number, verified_only=False)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found. Please sign up first."
+            )
+        
+        if user["is_verified"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Phone number is already verified"
+            )
+        
+        # Verify code
+        if not user_service.verify_code(phone_number, request.code):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired verification code"
+            )
+        
+        # Mark code as used
+        user_service.mark_code_used(phone_number, request.code)
+        
+        # Verify user
+        success = user_service.verify_user_phone(user["id"], phone_number)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to verify user"
+            )
+        
+        # Get updated user
+        user = user_service.get_user_by_id(user["id"])
+        
+        # Create JWT token
+        token_data = {
+            "user_id": user["id"],
+            "phone_number": user["phone_number"]
+        }
+        access_token = auth_service.create_access_token(data=token_data)
+        
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user["phone_number"],
+            is_verified=user["is_verified"]
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error verifying phone: {str(e)}")
+
+
+@router.post("/api/auth/sms-login", response_model=AuthResponse)
+async def sms_login(request: SMSLoginRequest):
+    """
+    Passwordless login with SMS verification code.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567",
+            "code": "123456"
+        }
+    
+    Returns:
+        AuthResponse: JWT token and user info
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        
+        # Get verified user
+        user = user_service.get_verified_user_by_phone(phone_number)
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid phone number or user not verified"
+            )
+        
+        # Verify code
+        if not user_service.verify_code(phone_number, request.code):
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired verification code"
+            )
+        
+        # Mark code as used
+        user_service.mark_code_used(phone_number, request.code)
+        
+        # Create JWT token
+        token_data = {
+            "user_id": user["id"],
+            "phone_number": user["phone_number"]
+        }
+        access_token = auth_service.create_access_token(data=token_data)
+        
+        return AuthResponse(
+            access_token=access_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user["phone_number"],
+            is_verified=user["is_verified"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during SMS login: {str(e)}")
+
+
+@router.get("/api/auth/check-phone", response_model=CheckPhoneResponse)
+async def check_phone(phone_number: str):
+    """
+    Check if phone number exists in the system.
+    
+    Query parameter:
+        phone_number: Phone number to check
+    
+    Returns:
+        CheckPhoneResponse: exists and is_verified status
+    """
+    try:
+        # Normalize phone number
+        normalized_phone = auth_service.normalize_phone_number(phone_number)
+        
+        # Check if verified user exists
+        verified_user = user_service.get_verified_user_by_phone(normalized_phone)
+        
+        if verified_user:
+            return CheckPhoneResponse(
+                exists=True,
+                is_verified=True
+            )
+        
+        # Check if any user exists (including unverified)
+        user = user_service.get_user_by_phone(normalized_phone, verified_only=False)
+        
+        return CheckPhoneResponse(
+            exists=user is not None,
+            is_verified=False
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking phone: {str(e)}")
+
+
+@router.get("/api/auth/me", response_model=UserResponse)
+async def get_current_user_info(current_user: dict = Depends(get_current_user)):
+    """
+    Get current authenticated user information.
+    
+    Requires authentication via Bearer token.
+    
+    Returns:
+        UserResponse: Current user information
+    """
+    return UserResponse(
+        id=current_user["id"],
+        phone_number=current_user["phone_number"],
+        name=current_user["name"],
+        email=current_user["email"],
+        is_verified=current_user["is_verified"],
+        created_at=current_user["created_at"]
+    )
 

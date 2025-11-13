@@ -128,3 +128,61 @@ class CreateMatchResponse(BaseModel):
     match_id: int
     session_id: int
 
+
+# Authentication schemas
+
+class SignupRequest(BaseModel):
+    """Request to sign up a new user."""
+    phone_number: str
+    password: Optional[str] = None
+    name: Optional[str] = None
+    email: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    """Request to login with password."""
+    phone_number: str
+    password: str
+
+
+class SMSLoginRequest(BaseModel):
+    """Request to login with SMS verification code."""
+    phone_number: str
+    code: str
+
+
+class VerifyPhoneRequest(BaseModel):
+    """Request to verify phone number with code."""
+    phone_number: str
+    code: str
+
+
+class CheckPhoneRequest(BaseModel):
+    """Request to check if phone number exists."""
+    phone_number: str
+
+
+class AuthResponse(BaseModel):
+    """Authentication response with JWT token."""
+    access_token: str
+    token_type: str = "bearer"
+    user_id: int
+    phone_number: str
+    is_verified: bool
+
+
+class CheckPhoneResponse(BaseModel):
+    """Response for phone number check."""
+    exists: bool
+    is_verified: bool
+
+
+class UserResponse(BaseModel):
+    """User information response."""
+    id: int
+    phone_number: str
+    name: Optional[str] = None
+    email: Optional[str] = None
+    is_verified: bool
+    created_at: str
+

@@ -89,6 +89,28 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Users table: User accounts with phone-based authentication
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL,  -- E.164 format, NOT unique (allows multiple unverified)
+    password_hash TEXT,  -- nullable for passwordless users
+    name TEXT,
+    email TEXT,
+    is_verified INTEGER NOT NULL DEFAULT 0,  -- 0 = unverified, 1 = verified
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Verification codes table: SMS verification codes
+CREATE TABLE IF NOT EXISTS verification_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone_number TEXT NOT NULL,
+    code TEXT NOT NULL,  -- 6-digit code
+    expires_at TEXT NOT NULL,
+    used INTEGER NOT NULL DEFAULT 0,  -- 0 = unused, 1 = used
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes for read performance
 CREATE INDEX IF NOT EXISTS idx_sessions_date ON sessions(date DESC);
 CREATE INDEX IF NOT EXISTS idx_sessions_pending ON sessions(is_pending);
@@ -102,4 +124,8 @@ CREATE INDEX IF NOT EXISTS idx_partnership_stats_player ON partnership_stats(pla
 CREATE INDEX IF NOT EXISTS idx_opponent_stats_player ON opponent_stats(player_id);
 CREATE INDEX IF NOT EXISTS idx_elo_history_player ON elo_history(player_id);
 CREATE INDEX IF NOT EXISTS idx_players_name ON players(name);
+CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number);
+CREATE INDEX IF NOT EXISTS idx_users_phone_verified ON users(phone_number, is_verified);
+CREATE INDEX IF NOT EXISTS idx_verification_codes_phone ON verification_codes(phone_number);
+CREATE INDEX IF NOT EXISTS idx_verification_codes_expires ON verification_codes(expires_at);
 

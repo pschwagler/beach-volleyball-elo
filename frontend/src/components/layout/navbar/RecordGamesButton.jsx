@@ -1,3 +1,4 @@
+import { Plus } from 'lucide-react';
 import VolleyballIcon from './VolleyballIcon';
 
 export default function RecordGamesButton({ onClick }) {
@@ -5,10 +6,13 @@ export default function RecordGamesButton({ onClick }) {
     <button
       className="navbar-menu-button"
       onClick={onClick}
-      aria-label="Record Games"
+      aria-label="Add Games"
     >
-      <VolleyballIcon className="navbar-volleyball-icon" />
-      <span className="navbar-menu-label">Record Games</span>
+      <div className="navbar-icon-with-plus">
+        <VolleyballIcon className="navbar-volleyball-icon" />
+        <Plus size={12} className="navbar-plus-overlay" />
+      </div>
+      <span className="navbar-menu-label">Add Games</span>
     </button>
   );
 }

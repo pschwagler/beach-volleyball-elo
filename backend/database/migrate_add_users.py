@@ -35,6 +35,8 @@ def migrate():
                     name TEXT,
                     email TEXT,
                     is_verified INTEGER NOT NULL DEFAULT 0,
+                    failed_verification_attempts INTEGER NOT NULL DEFAULT 0,
+                    locked_until TEXT,
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
                     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                 )
@@ -50,6 +52,23 @@ def migrate():
             print("✓ Users table created")
         else:
             print("✓ Users table already exists")
+            # Check if new columns need to be added
+            cursor.execute("PRAGMA table_info(users)")
+            columns = [row[1] for row in cursor.fetchall()]
+            
+            if "failed_verification_attempts" not in columns:
+                print("Adding failed_verification_attempts column...")
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN failed_verification_attempts INTEGER NOT NULL DEFAULT 0"
+                )
+                print("✓ Added failed_verification_attempts column")
+            
+            if "locked_until" not in columns:
+                print("Adding locked_until column...")
+                cursor.execute(
+                    "ALTER TABLE users ADD COLUMN locked_until TEXT"
+                )
+                print("✓ Added locked_until column")
         
         # Check if verification_codes table already exists
         cursor.execute(
@@ -80,6 +99,39 @@ def migrate():
             print("✓ Verification codes table created")
         else:
             print("✓ Verification codes table already exists")
+        
+        # Check if refresh_tokens table already exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='refresh_tokens'"
+        )
+        refresh_tokens_exists = cursor.fetchone() is not None
+        
+        if not refresh_tokens_exists:
+            print("Creating refresh_tokens table...")
+            cursor.execute("""
+                CREATE TABLE refresh_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    token TEXT NOT NULL UNIQUE,
+                    expires_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Create indexes
+            cursor.execute(
+                "CREATE INDEX idx_refresh_tokens_user ON refresh_tokens(user_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token)"
+            )
+            cursor.execute(
+                "CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at)"
+            )
+            print("✓ Refresh tokens table created")
+        else:
+            print("✓ Refresh tokens table already exists")
         
         conn.commit()
         print("\n✅ Migration completed successfully!")

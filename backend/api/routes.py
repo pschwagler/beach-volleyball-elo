@@ -4,18 +4,25 @@ API route handlers for the Beach Volleyball ELO system.
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
-    CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse
+    CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse,
+    RefreshTokenRequest, RefreshTokenResponse
 )
 import httpx
 import os
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta
 
 router = APIRouter()
+
+# Rate limiter instance (initialized in main.py, accessed via app.state.limiter)
+# This will be set when the router is included in the app
+limiter = None
 
 # WhatsApp service URL
 WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001")
@@ -875,7 +882,7 @@ async def login(request: LoginRequest):
         if not user:
             raise HTTPException(
                 status_code=401,
-                detail="Invalid phone number or user not verified"
+                detail="Invalid credentials"
             )
         
         # Check if user has a password
@@ -889,18 +896,24 @@ async def login(request: LoginRequest):
         if not auth_service.verify_password(request.password, user["password_hash"]):
             raise HTTPException(
                 status_code=401,
-                detail="Invalid password"
+                detail="Invalid credentials"
             )
         
-        # Create JWT token
+        # Create access token
         token_data = {
             "user_id": user["id"],
             "phone_number": user["phone_number"]
         }
         access_token = auth_service.create_access_token(data=token_data)
         
+        # Create refresh token
+        refresh_token = auth_service.generate_refresh_token()
+        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        
         return AuthResponse(
             access_token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
             phone_number=user["phone_number"],
@@ -913,7 +926,8 @@ async def login(request: LoginRequest):
 
 
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
-async def send_verification(request: CheckPhoneRequest):
+@limiter.limit("3/hour")
+async def send_verification(http_request: Request, request: CheckPhoneRequest):
     """
     Send SMS verification code to phone number.
     
@@ -959,7 +973,8 @@ async def send_verification(request: CheckPhoneRequest):
 
 
 @router.post("/api/auth/verify-phone", response_model=AuthResponse)
-async def verify_phone(request: VerifyPhoneRequest):
+@limiter.limit("10/minute")
+async def verify_phone(http_request: Request, request: VerifyPhoneRequest):
     """
     Verify phone number with code (for signup).
     
@@ -980,8 +995,8 @@ async def verify_phone(request: VerifyPhoneRequest):
         user = user_service.get_user_by_phone(phone_number, verified_only=False)
         if not user:
             raise HTTPException(
-                status_code=404,
-                detail="User not found. Please sign up first."
+                status_code=401,
+                detail="Invalid credentials"
             )
         
         if user["is_verified"]:
@@ -990,15 +1005,24 @@ async def verify_phone(request: VerifyPhoneRequest):
                 detail="Phone number is already verified"
             )
         
-        # Verify code
-        if not user_service.verify_code(phone_number, request.code):
+        # Check if account is locked
+        if user_service.is_account_locked(user):
+            raise HTTPException(
+                status_code=423,
+                detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+            )
+        
+        # Atomically verify code and mark as used
+        if not user_service.verify_and_mark_code_used(phone_number, request.code):
+            # Increment failed attempts
+            user_service.increment_failed_attempts(phone_number)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or expired verification code"
             )
         
-        # Mark code as used
-        user_service.mark_code_used(phone_number, request.code)
+        # Reset failed attempts on success
+        user_service.reset_failed_attempts(user["id"])
         
         # Verify user
         success = user_service.verify_user_phone(user["id"], phone_number)
@@ -1011,15 +1035,21 @@ async def verify_phone(request: VerifyPhoneRequest):
         # Get updated user
         user = user_service.get_user_by_id(user["id"])
         
-        # Create JWT token
+        # Create access token
         token_data = {
             "user_id": user["id"],
             "phone_number": user["phone_number"]
         }
         access_token = auth_service.create_access_token(data=token_data)
         
+        # Create refresh token
+        refresh_token = auth_service.generate_refresh_token()
+        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        
         return AuthResponse(
             access_token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
             phone_number=user["phone_number"],
@@ -1034,7 +1064,8 @@ async def verify_phone(request: VerifyPhoneRequest):
 
 
 @router.post("/api/auth/sms-login", response_model=AuthResponse)
-async def sms_login(request: SMSLoginRequest):
+@limiter.limit("10/minute")
+async def sms_login(http_request: Request, request: SMSLoginRequest):
     """
     Passwordless login with SMS verification code.
     
@@ -1056,28 +1087,43 @@ async def sms_login(request: SMSLoginRequest):
         if not user:
             raise HTTPException(
                 status_code=401,
-                detail="Invalid phone number or user not verified"
+                detail="Invalid credentials"
             )
         
-        # Verify code
-        if not user_service.verify_code(phone_number, request.code):
+        # Check if account is locked
+        if user_service.is_account_locked(user):
+            raise HTTPException(
+                status_code=423,
+                detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+            )
+        
+        # Atomically verify code and mark as used
+        if not user_service.verify_and_mark_code_used(phone_number, request.code):
+            # Increment failed attempts
+            user_service.increment_failed_attempts(phone_number)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid or expired verification code"
             )
         
-        # Mark code as used
-        user_service.mark_code_used(phone_number, request.code)
+        # Reset failed attempts on success
+        user_service.reset_failed_attempts(user["id"])
         
-        # Create JWT token
+        # Create access token
         token_data = {
             "user_id": user["id"],
             "phone_number": user["phone_number"]
         }
         access_token = auth_service.create_access_token(data=token_data)
         
+        # Create refresh token
+        refresh_token = auth_service.generate_refresh_token()
+        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        
         return AuthResponse(
             access_token=access_token,
+            refresh_token=refresh_token,
             token_type="bearer",
             user_id=user["id"],
             phone_number=user["phone_number"],
@@ -1122,6 +1168,63 @@ async def check_phone(phone_number: str):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error checking phone: {str(e)}")
+
+
+@router.post("/api/auth/refresh", response_model=RefreshTokenResponse)
+async def refresh_token(request: RefreshTokenRequest):
+    """
+    Refresh access token using refresh token.
+    
+    Request body:
+        {
+            "refresh_token": "refresh_token_string"
+        }
+    
+    Returns:
+        RefreshTokenResponse: New access token
+    """
+    try:
+        # Get refresh token from database
+        refresh_token_record = user_service.get_refresh_token(request.refresh_token)
+        if not refresh_token_record:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid refresh token"
+            )
+        
+        # Check if token is expired
+        expires_at = datetime.fromisoformat(refresh_token_record["expires_at"])
+        if datetime.utcnow() > expires_at:
+            # Delete expired token
+            user_service.delete_refresh_token(request.refresh_token)
+            raise HTTPException(
+                status_code=401,
+                detail="Refresh token has expired"
+            )
+        
+        # Get user
+        user = user_service.get_user_by_id(refresh_token_record["user_id"])
+        if not user:
+            raise HTTPException(
+                status_code=401,
+                detail="User not found"
+            )
+        
+        # Create new access token
+        token_data = {
+            "user_id": user["id"],
+            "phone_number": user["phone_number"]
+        }
+        access_token = auth_service.create_access_token(data=token_data)
+        
+        return RefreshTokenResponse(
+            access_token=access_token,
+            token_type="bearer"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error refreshing token: {str(e)}")
 
 
 @router.get("/api/auth/me", response_model=UserResponse)

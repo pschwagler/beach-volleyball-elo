@@ -97,6 +97,8 @@ CREATE TABLE IF NOT EXISTS users (
     name TEXT,
     email TEXT,
     is_verified INTEGER NOT NULL DEFAULT 0,  -- 0 = unverified, 1 = verified
+    failed_verification_attempts INTEGER NOT NULL DEFAULT 0,  -- Track failed verification attempts
+    locked_until TEXT,  -- ISO timestamp when account lock expires (NULL if not locked)
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -109,6 +111,16 @@ CREATE TABLE IF NOT EXISTS verification_codes (
     expires_at TEXT NOT NULL,
     used INTEGER NOT NULL DEFAULT 0,  -- 0 = unused, 1 = used
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Refresh tokens table: JWT refresh tokens for token rotation
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,  -- The refresh token itself
+    expires_at TEXT NOT NULL,  -- ISO timestamp when token expires
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Indexes for read performance
@@ -128,4 +140,7 @@ CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone_number);
 CREATE INDEX IF NOT EXISTS idx_users_phone_verified ON users(phone_number, is_verified);
 CREATE INDEX IF NOT EXISTS idx_verification_codes_phone ON verification_codes(phone_number);
 CREATE INDEX IF NOT EXISTS idx_verification_codes_expires ON verification_codes(expires_at);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
 

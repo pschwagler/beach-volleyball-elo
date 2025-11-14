@@ -165,10 +165,22 @@ class CheckPhoneRequest(BaseModel):
 class AuthResponse(BaseModel):
     """Authentication response with JWT token."""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     user_id: int
     phone_number: str
     is_verified: bool
+
+
+class RefreshTokenRequest(BaseModel):
+    """Request to refresh access token."""
+    refresh_token: str
+
+
+class RefreshTokenResponse(BaseModel):
+    """Response with new access token."""
+    access_token: str
+    token_type: str = "bearer"
 
 
 class CheckPhoneResponse(BaseModel):

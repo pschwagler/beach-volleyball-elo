@@ -6,13 +6,14 @@ import ControlPanel from './components/control/ControlPanel';
 import RankingsTable from './components/rankings/RankingsTable';
 import MatchesTable from './components/match/MatchesTable';
 import PlayerDetailsPanel from './components/player/PlayerDetailsPanel';
+import AuthModal from './components/auth/AuthModal';
 import { Alert, Tabs } from './components/ui/UI';
 import { useData } from './contexts/DataContext';
 import { usePlayerDetails } from './hooks/usePlayerDetails';
+import { useAuth } from './contexts/AuthContext';
 
 function App() {
-  // Simple login state - can be replaced with proper auth context later
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
   const { 
     rankings, 
     matches, 
@@ -31,10 +32,12 @@ function App() {
     allPlayerNames 
   } = useData();
   const [activeTab, setActiveTab] = useState('rankings');
+  const [authModalMode, setAuthModalMode] = useState('sign-in');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   // Check if URL contains ?skyball query parameter
   const urlParams = new URLSearchParams(window.location.search);
-  const showControls = urlParams.has('skyball');
+  const showControls = urlParams.has('skyball') && isAuthenticated;
 
   // Player details management
   const {
@@ -48,19 +51,35 @@ function App() {
   } = usePlayerDetails(rankings, allPlayerNames, setMessage, matches);
 
   const handleSignOut = () => {
-    setIsLoggedIn(false);
-    // Add any additional sign out logic here
+    logout();
+    setIsAuthModalOpen(false);
+  };
+
+  const openAuthModal = (mode) => {
+    setAuthModalMode(mode);
+    setIsAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setIsAuthModalOpen(false);
   };
 
   // Mock user leagues - replace with actual data later
-  const userLeagues = isLoggedIn ? [
+  const userLeagues = isAuthenticated ? [
     { id: 1, name: 'Summer League 2024' },
     { id: 2, name: 'Weekend Warriors' },
   ] : [];
 
   return (
     <>
-      <NavBar isLoggedIn={isLoggedIn} onSignOut={handleSignOut} userLeagues={userLeagues} />
+      <NavBar
+        isLoggedIn={isAuthenticated}
+        user={user}
+        onSignOut={handleSignOut}
+        onSignIn={() => openAuthModal('sign-in')}
+        onSignUp={() => openAuthModal('sign-up')}
+        userLeagues={userLeagues}
+      />
       <div className="container">
         <HeroHeader />
         {showControls && <ControlPanel onLoadFromSheets={handleLoadFromSheets} />}
@@ -104,6 +123,7 @@ function App() {
         onClose={handleClosePlayer}
         onSideTabClick={handleSideTabClick}
       />
+      <AuthModal isOpen={isAuthModalOpen} mode={authModalMode} onClose={closeAuthModal} />
     </>
   );
 }

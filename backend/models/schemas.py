@@ -3,39 +3,42 @@ Pydantic models for API request/response validation.
 """
 
 from typing import Optional, List
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 
 
 class RankingResponse(BaseModel):
     """Player ranking data."""
+    model_config = ConfigDict(populate_by_name=True)
     Name: str
     Points: int
     Games: int
-    "Win Rate": float
+    Win_Rate: float = Field(alias="Win Rate")
     Wins: int
     Losses: int
-    "Avg Pt Diff": float
+    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
     ELO: int
 
 
 class PartnershipStats(BaseModel):
     """Partnership statistics."""
+    model_config = ConfigDict(populate_by_name=True)
     Partner: str
     Games: int
     Wins: int
     Losses: int
-    "Win Rate": float
-    "Avg Pt Diff": float
+    Win_Rate: float = Field(alias="Win Rate")
+    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
 
 
 class OpponentStats(BaseModel):
     """Opponent statistics."""
+    model_config = ConfigDict(populate_by_name=True)
     Opponent: str
     Games: int
     Wins: int
     Losses: int
-    "Win Rate": float
-    "Avg Pt Diff": float
+    Win_Rate: float = Field(alias="Win Rate")
+    Avg_Pt_Diff: float = Field(alias="Avg Pt Diff")
 
 
 class PlayerStatsResponse(BaseModel):
@@ -47,27 +50,29 @@ class PlayerStatsResponse(BaseModel):
 
 class MatchResponse(BaseModel):
     """Match result data."""
+    model_config = ConfigDict(populate_by_name=True)
     Date: str
-    "Team 1 Player 1": str
-    "Team 1 Player 2": str
-    "Team 2 Player 1": str
-    "Team 2 Player 2": str
-    "Team 1 Score": int
-    "Team 2 Score": int
+    Team_1_Player_1: str = Field(alias="Team 1 Player 1")
+    Team_1_Player_2: str = Field(alias="Team 1 Player 2")
+    Team_2_Player_1: str = Field(alias="Team 2 Player 1")
+    Team_2_Player_2: str = Field(alias="Team 2 Player 2")
+    Team_1_Score: int = Field(alias="Team 1 Score")
+    Team_2_Score: int = Field(alias="Team 2 Score")
     Winner: str
-    "Team 1 ELO Change": float
-    "Team 2 ELO Change": float
+    Team_1_ELO_Change: float = Field(alias="Team 1 ELO Change")
+    Team_2_ELO_Change: float = Field(alias="Team 2 ELO Change")
 
 
 class PlayerMatchHistoryResponse(BaseModel):
     """Player's match history."""
+    model_config = ConfigDict(populate_by_name=True)
     Date: str
     Partner: str
-    "Opponent 1": str
-    "Opponent 2": str
+    Opponent_1: str = Field(alias="Opponent 1")
+    Opponent_2: str = Field(alias="Opponent 2")
     Result: str
     Score: str
-    "ELO Change": float
+    ELO_Change: float = Field(alias="ELO Change")
 
 
 class EloTimelineResponse(BaseModel):

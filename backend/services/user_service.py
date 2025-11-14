@@ -99,17 +99,18 @@ def get_user_by_phone(phone_number: str, verified_only: bool = False) -> Optiona
         
         row = cursor.fetchone()
         if row:
+            row_dict = dict(row)
             return {
-                "id": row["id"],
-                "phone_number": row["phone_number"],
-                "password_hash": row["password_hash"],
-                "name": row["name"],
-                "email": row["email"],
-                "is_verified": bool(row["is_verified"]),
-                "failed_verification_attempts": row.get("failed_verification_attempts", 0) or 0,
-                "locked_until": row.get("locked_until"),
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"]
+                "id": row_dict["id"],
+                "phone_number": row_dict["phone_number"],
+                "password_hash": row_dict["password_hash"],
+                "name": row_dict["name"],
+                "email": row_dict["email"],
+                "is_verified": bool(row_dict["is_verified"]),
+                "failed_verification_attempts": row_dict.get("failed_verification_attempts", 0) or 0,
+                "locked_until": row_dict.get("locked_until"),
+                "created_at": row_dict["created_at"],
+                "updated_at": row_dict["updated_at"]
             }
         return None
 
@@ -149,17 +150,18 @@ def get_user_by_id(user_id: int) -> Optional[Dict]:
         
         row = cursor.fetchone()
         if row:
+            row_dict = dict(row)
             return {
-                "id": row["id"],
-                "phone_number": row["phone_number"],
-                "password_hash": row["password_hash"],
-                "name": row["name"],
-                "email": row["email"],
-                "is_verified": bool(row["is_verified"]),
-                "failed_verification_attempts": row.get("failed_verification_attempts", 0) or 0,
-                "locked_until": row.get("locked_until"),
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"]
+                "id": row_dict["id"],
+                "phone_number": row_dict["phone_number"],
+                "password_hash": row_dict["password_hash"],
+                "name": row_dict["name"],
+                "email": row_dict["email"],
+                "is_verified": bool(row_dict["is_verified"]),
+                "failed_verification_attempts": row_dict.get("failed_verification_attempts", 0) or 0,
+                "locked_until": row_dict.get("locked_until"),
+                "created_at": row_dict["created_at"],
+                "updated_at": row_dict["updated_at"]
             }
         return None
 
@@ -359,9 +361,10 @@ def increment_failed_attempts(phone_number: str) -> bool:
         row = cursor.fetchone()
         if not row:
             return False
-        
-        user_id = row["id"]
-        current_attempts = row.get("failed_verification_attempts", 0) or 0
+
+        row_dict = dict(row)
+        user_id = row_dict["id"]
+        current_attempts = row_dict.get("failed_verification_attempts", 0) or 0
         new_attempts = current_attempts + 1
         
         # Update attempts

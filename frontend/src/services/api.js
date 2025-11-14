@@ -7,12 +7,106 @@ import axios from 'axios';
 // Base URL - empty string for same-origin, or set to API URL for development
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+const ACCESS_TOKEN_KEY = 'beach_access_token';
+const REFRESH_TOKEN_KEY = 'beach_refresh_token';
+const isBrowser = typeof window !== 'undefined';
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
+
+const refreshClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+const authTokens = {
+  accessToken: isBrowser ? window.localStorage.getItem(ACCESS_TOKEN_KEY) : null,
+  refreshToken: isBrowser ? window.localStorage.getItem(REFRESH_TOKEN_KEY) : null,
+};
+
+export const setAuthTokens = (accessToken, refreshToken = authTokens.refreshToken) => {
+  authTokens.accessToken = accessToken;
+  if (isBrowser) {
+    if (accessToken) {
+      window.localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+    } else {
+      window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    }
+  }
+
+  if (typeof refreshToken !== 'undefined') {
+    authTokens.refreshToken = refreshToken;
+    if (isBrowser) {
+      if (refreshToken) {
+        window.localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+      } else {
+        window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+      }
+    }
+  }
+};
+
+export const clearAuthTokens = () => {
+  authTokens.accessToken = null;
+  authTokens.refreshToken = null;
+  if (isBrowser) {
+    window.localStorage.removeItem(ACCESS_TOKEN_KEY);
+    window.localStorage.removeItem(REFRESH_TOKEN_KEY);
+  }
+};
+
+export const getStoredTokens = () => ({
+  accessToken: authTokens.accessToken,
+  refreshToken: authTokens.refreshToken,
+});
+
+api.interceptors.request.use(
+  (config) => {
+    if (authTokens.accessToken) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${authTokens.accessToken}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config || {};
+    const isUnauthorized = error.response?.status === 401;
+    const isAuthEndpoint = originalRequest.url?.includes('/api/auth/');
+
+    if (
+      isUnauthorized &&
+      authTokens.refreshToken &&
+      !originalRequest._retry &&
+      !isAuthEndpoint
+    ) {
+      originalRequest._retry = true;
+      try {
+        const { data } = await refreshClient.post('/api/auth/refresh', {
+          refresh_token: authTokens.refreshToken,
+        });
+        setAuthTokens(data.access_token);
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers.Authorization = `Bearer ${authTokens.accessToken}`;
+        return api(originalRequest);
+      } catch (refreshError) {
+        clearAuthTokens();
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 /**
  * Load matches from Google Sheets and calculate statistics
@@ -174,4 +268,6 @@ export const exportMatchesToCSV = async () => {
   link.remove();
   window.URL.revokeObjectURL(url);
 };
+
+export default api;
 

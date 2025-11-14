@@ -10,11 +10,10 @@ from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import logging
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler  # type: ignore
+from slowapi.errors import RateLimitExceeded  # type: ignore
 
-from backend.api.routes import router
+from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
 from backend.services import data_service, sheets_service, calculation_service
 
@@ -29,8 +28,7 @@ app = FastAPI(
 )
 
 # Setup rate limiter
-limiter = Limiter(key_func=get_remote_address)
-app.state.limiter = limiter
+app.state.limiter = routes_limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Add CORS middleware to allow frontend access
@@ -44,10 +42,6 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router)
-
-# Set limiter in router module so routes can use it
-from backend.api import routes
-routes.limiter = limiter
 
 
 @app.on_event("startup")

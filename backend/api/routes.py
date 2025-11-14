@@ -4,8 +4,8 @@ API route handlers for the Beach Volleyball ELO system.
 
 from fastapi import APIRouter, HTTPException, Request, Depends
 from fastapi.responses import Response
-from slowapi import Limiter
-from slowapi.util import get_remote_address
+from slowapi import Limiter  # type: ignore
+from slowapi.util import get_remote_address  # type: ignore
 from backend.services import data_service, sheets_service, calculation_service, auth_service, user_service
 from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
@@ -20,9 +20,8 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 
-# Rate limiter instance (initialized in main.py, accessed via app.state.limiter)
-# This will be set when the router is included in the app
-limiter = None
+# Rate limiter instance shared with FastAPI app
+limiter = Limiter(key_func=get_remote_address)
 
 # WhatsApp service URL
 WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001")
@@ -93,7 +92,7 @@ async def proxy_whatsapp_request(
 
 
 @router.post("/api/loadsheets")
-async def load_sheets():
+async def load_sheets(current_user: dict = Depends(get_current_user)):
     """
     Load matches from Google Sheets into database and calculate statistics.
     Creates one locked-in session per unique date from sheet data.
@@ -119,7 +118,7 @@ async def load_sheets():
 
 
 @router.post("/api/calculate")
-async def calculate_stats():
+async def calculate_stats(current_user: dict = Depends(get_current_user)):
     """
     Recalculate statistics from existing database matches (locked-in sessions only).
     Does not load from Google Sheets - use /api/loadsheets for that.
@@ -182,7 +181,7 @@ async def list_players():
 
 
 @router.post("/api/players")
-async def create_player(request: Request):
+async def create_player(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Create a new player.
     
@@ -362,7 +361,7 @@ async def health_check():
 # WhatsApp proxy endpoints (optional - frontend can also call the service directly)
 
 @router.get("/api/whatsapp/qr")
-async def whatsapp_qr():
+async def whatsapp_qr(current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for WhatsApp QR code.
     
@@ -373,7 +372,7 @@ async def whatsapp_qr():
 
 
 @router.get("/api/whatsapp/status")
-async def whatsapp_status():
+async def whatsapp_status(current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for WhatsApp authentication status.
     
@@ -384,7 +383,7 @@ async def whatsapp_status():
 
 
 @router.post("/api/whatsapp/initialize")
-async def whatsapp_initialize():
+async def whatsapp_initialize(current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for initializing WhatsApp client.
     
@@ -395,7 +394,7 @@ async def whatsapp_initialize():
 
 
 @router.post("/api/whatsapp/logout")
-async def whatsapp_logout():
+async def whatsapp_logout(current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for logging out of WhatsApp.
     
@@ -406,7 +405,7 @@ async def whatsapp_logout():
 
 
 @router.get("/api/whatsapp/groups")
-async def whatsapp_groups():
+async def whatsapp_groups(current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for fetching WhatsApp group chats.
     
@@ -417,7 +416,7 @@ async def whatsapp_groups():
 
 
 @router.post("/api/whatsapp/send")
-async def whatsapp_send(request: Request):
+async def whatsapp_send(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Proxy endpoint for sending WhatsApp messages.
     
@@ -436,7 +435,7 @@ async def whatsapp_send(request: Request):
 
 
 @router.get("/api/whatsapp/config")
-async def get_whatsapp_config():
+async def get_whatsapp_config(current_user: dict = Depends(get_current_user)):
     """
     Get WhatsApp configuration (selected group for automated messages).
     
@@ -454,7 +453,7 @@ async def get_whatsapp_config():
 
 
 @router.post("/api/whatsapp/config")
-async def set_whatsapp_config(request: Request):
+async def set_whatsapp_config(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Set WhatsApp configuration (selected group for automated messages).
     
@@ -518,7 +517,7 @@ async def get_active_session():
 
 
 @router.post("/api/sessions")
-async def create_session(request: Request):
+async def create_session(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Create a new session.
     
@@ -553,7 +552,7 @@ async def create_session(request: Request):
 
 
 @router.post("/api/sessions/{session_id}/lockin")
-async def lock_in_session_endpoint(session_id: int):
+async def lock_in_session_endpoint(session_id: int, current_user: dict = Depends(get_current_user)):
     """
     Lock in a session and recalculate all statistics.
     
@@ -590,7 +589,7 @@ async def lock_in_session_endpoint(session_id: int):
 
 
 @router.post("/api/sessions/{session_id}/end")
-async def end_session(session_id: int):
+async def end_session(session_id: int, current_user: dict = Depends(get_current_user)):
     """
     Legacy endpoint - calls lockin for backwards compatibility.
     """
@@ -598,7 +597,7 @@ async def end_session(session_id: int):
 
 
 @router.delete("/api/sessions/{session_id}")
-async def delete_session(session_id: int):
+async def delete_session(session_id: int, current_user: dict = Depends(get_current_user)):
     """
     Delete an active session and all its matches.
     Only active (pending) sessions can be deleted.
@@ -631,7 +630,7 @@ async def delete_session(session_id: int):
 
 
 @router.post("/api/matches/create")
-async def create_match(request: Request):
+async def create_match(request: Request, current_user: dict = Depends(get_current_user)):
     """
     Create a new match in a session.
     
@@ -702,7 +701,7 @@ async def create_match(request: Request):
 
 
 @router.put("/api/matches/{match_id}")
-async def update_match(match_id: int, request: Request):
+async def update_match(match_id: int, request: Request, current_user: dict = Depends(get_current_user)):
     """
     Update an existing match.
     
@@ -776,7 +775,7 @@ async def update_match(match_id: int, request: Request):
 
 
 @router.delete("/api/matches/{match_id}")
-async def delete_match(match_id: int):
+async def delete_match(match_id: int, current_user: dict = Depends(get_current_user)):
     """
     Delete a match.
     

@@ -4,7 +4,15 @@ import PlayersMenu from './navbar/PlayersMenu';
 import LeaguesMenu from './navbar/LeaguesMenu';
 import UserMenu from './navbar/UserMenu';
 
-export default function NavBar({ isLoggedIn = false, onSignOut, userLeagues = [] }) {
+export default function NavBar({
+  isLoggedIn = false,
+  user,
+  onSignOut,
+  onSignIn,
+  onSignUp,
+  onSmsLogin,
+  userLeagues = [],
+}) {
   const handleRecordGamesClick = () => {
     console.log('Navigate to Record Games');
     // Handle navigation to record games page
@@ -48,7 +56,11 @@ export default function NavBar({ isLoggedIn = false, onSignOut, userLeagues = []
           
           <UserMenu
             isLoggedIn={isLoggedIn}
+            user={user}
             onMenuClick={handleUserMenuClick}
+            onSignIn={onSignIn}
+            onSignUp={onSignUp}
+            onSmsLogin={onSmsLogin}
             onSignOut={onSignOut}
           />
         </div>

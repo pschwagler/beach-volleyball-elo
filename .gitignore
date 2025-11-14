@@ -35,6 +35,8 @@ rank_changes.csv
 **/*.db
 *.db
 backend/database/*.db
+*.db-shm
+*.db-wal
 
 # Old vanilla HTML (replaced by React)
 static/

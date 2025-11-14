@@ -11,7 +11,8 @@ from backend.api.auth_dependencies import get_current_user
 from backend.models.schemas import (
     SignupRequest, LoginRequest, SMSLoginRequest, VerifyPhoneRequest,
     CheckPhoneRequest, AuthResponse, CheckPhoneResponse, UserResponse,
-    RefreshTokenRequest, RefreshTokenResponse
+    RefreshTokenRequest, RefreshTokenResponse, ResetPasswordRequest,
+    ResetPasswordVerifyRequest, ResetPasswordConfirmRequest
 )
 import httpx
 import os
@@ -29,6 +30,8 @@ WHATSAPP_SERVICE_URL = os.getenv("WHATSAPP_SERVICE_URL", "http://localhost:3001"
 # Default timeout for WhatsApp service requests (in seconds)
 WHATSAPP_REQUEST_TIMEOUT = 30.0
 
+INVALID_CREDENTIALS_RESPONSE = HTTPException(status_code=401, detail="Username or password is incorrect")
+INVALID_VERIFICATION_CODE_RESPONSE = HTTPException(status_code=401, detail="Invalid or expired verification code")
 
 async def proxy_whatsapp_request(
     method: str,
@@ -816,56 +819,103 @@ async def delete_match(match_id: int, current_user: dict = Depends(get_current_u
 @router.post("/api/auth/signup", response_model=Dict[str, Any])
 async def signup(request: SignupRequest):
     """
-    Create a new user account.
+    Start signup process by storing signup data and sending verification code.
+    Account is only created after phone verification.
     
     Request body:
         {
             "phone_number": "+15551234567",
-            "password": "optional_password",  // Optional
+            "password": "user_password",  // Required
             "name": "John Doe",  // Optional
             "email": "john@example.com"  // Optional
         }
     
     Returns:
-        dict: User ID and status
+        dict: Status message
     """
     try:
         # Normalize phone number
         phone_number = auth_service.normalize_phone_number(request.phone_number)
         
-        # Hash password if provided
-        password_hash = None
-        if request.password:
-            password_hash = auth_service.hash_password(request.password)
+        # Check if user already exists
+        if user_service.check_phone_exists(phone_number, verified_only=True):
+            raise HTTPException(
+                status_code=400,
+                detail="Phone number is already registered"
+            )
         
-        # Create user
-        user_id = user_service.create_user(
+        # Validate password strength
+        if len(request.password) < 8:
+            raise HTTPException(
+                status_code=400,
+                detail="Password must be at least 8 characters long"
+            )
+        if not any(char.isdigit() for char in request.password):
+            raise HTTPException(
+                status_code=400,
+                detail="Password must include at least one number"
+            )
+        
+        # Normalize email if provided
+        email = None
+        if request.email:
+            email = auth_service.normalize_email(request.email)
+        
+        # Hash password (required)
+        password_hash = auth_service.hash_password(request.password)
+        
+        # Generate verification code
+        code = auth_service.generate_verification_code()
+        
+        # Store verification code with signup data (account not created yet)
+        success = user_service.create_verification_code(
             phone_number=phone_number,
+            code=code,
             password_hash=password_hash,
             name=request.name,
-            email=request.email
+            email=email
         )
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create verification code"
+            )
+        
+        # Send SMS
+        # DISABLED FOR NOW
+        # sms_sent = auth_service.send_sms_verification(phone_number, code)
+        # if not sms_sent:
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail="Failed to send SMS. Please check Twilio configuration."
+        #     )
         
         return {
             "status": "success",
-            "message": "User created successfully. Please verify your phone number.",
-            "user_id": user_id,
+            "message": "Verification code sent. Please verify your phone number to complete signup.",
             "phone_number": phone_number
         }
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error during signup: {str(e)}")
 
 
 @router.post("/api/auth/login", response_model=AuthResponse)
 async def login(request: LoginRequest):
     """
-    Login with phone number and password.
+    Login with phone number or email and password.
     
-    Request body:
+    Request body (either phone_number OR email):
         {
             "phone_number": "+15551234567",
+            "password": "user_password"
+        }
+        OR
+        {
+            "email": "user@example.com",
             "password": "user_password"
         }
     
@@ -873,30 +923,36 @@ async def login(request: LoginRequest):
         AuthResponse: JWT token and user info
     """
     try:
-        # Normalize phone number
-        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        user = None
         
-        # Get verified user
-        user = user_service.get_verified_user_by_phone(phone_number)
+        # Handle phone number login
+        if request.phone_number:
+            # Normalize phone number
+            phone_number = auth_service.normalize_phone_number(request.phone_number)
+            # Get verified user by phone
+            user = user_service.get_verified_user_by_phone(phone_number)
+        
+        # Handle email login
+        elif request.email:
+            # Normalize and validate email
+            email = auth_service.normalize_email(request.email)
+            # Get verified user by email
+            user = user_service.get_verified_user_by_email(email)
+        
+        # If user not found, return generic error (don't reveal if phone/email exists)
         if not user:
+            raise INVALID_CREDENTIALS_RESPONSE
+        
+        # Verify password (all accounts now require passwords)
+        if not user.get("password_hash"):
             raise HTTPException(
                 status_code=401,
-                detail="Invalid credentials"
-            )
-        
-        # Check if user has a password
-        if not user["password_hash"]:
-            raise HTTPException(
-                status_code=400,
-                detail="This account does not have a password. Please use SMS login."
+                detail="Please contact support for help - NO_PASSWORD"
             )
         
         # Verify password
         if not auth_service.verify_password(request.password, user["password_hash"]):
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials"
-            )
+            raise INVALID_CREDENTIALS_RESPONSE
         
         # Create access token
         token_data = {
@@ -920,13 +976,16 @@ async def login(request: LoginRequest):
         )
     except HTTPException:
         raise
+    except ValueError as e:
+        # Handle validation errors (invalid phone/email format)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
 
 
 @router.post("/api/auth/send-verification", response_model=Dict[str, Any])
 @limiter.limit("3/hour")
-async def send_verification(http_request: Request, request: CheckPhoneRequest):
+async def send_verification(request: Request, payload: CheckPhoneRequest):
     """
     Send SMS verification code to phone number.
     
@@ -940,7 +999,7 @@ async def send_verification(http_request: Request, request: CheckPhoneRequest):
     """
     try:
         # Normalize phone number
-        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
         # Generate verification code
         code = auth_service.generate_verification_code()
@@ -954,12 +1013,13 @@ async def send_verification(http_request: Request, request: CheckPhoneRequest):
             )
         
         # Send SMS
-        sms_sent = auth_service.send_sms_verification(phone_number, code)
-        if not sms_sent:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to send SMS. Please check Twilio configuration."
-            )
+        # DISABLED FOR NOW
+        # sms_sent = auth_service.send_sms_verification(phone_number, code)
+        # if not sms_sent:
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail="Failed to send SMS. Please check Twilio configuration."
+        #     )
         
         return {
             "status": "success",
@@ -973,7 +1033,7 @@ async def send_verification(http_request: Request, request: CheckPhoneRequest):
 
 @router.post("/api/auth/verify-phone", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def verify_phone(http_request: Request, request: VerifyPhoneRequest):
+async def verify_phone(request: Request, payload: VerifyPhoneRequest):
     """
     Verify phone number with code (for signup).
     
@@ -988,51 +1048,58 @@ async def verify_phone(http_request: Request, request: VerifyPhoneRequest):
     """
     try:
         # Normalize phone number
-        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
-        # Get user (unverified)
-        user = user_service.get_user_by_phone(phone_number, verified_only=False)
-        if not user:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials"
-            )
+        # Verify the code and get signup data if present
+        signup_data = user_service.verify_and_mark_code_used(phone_number, payload.code)
+        if not signup_data:
+            # Check if user exists (for SMS login case)
+            user = user_service.get_user_by_phone(phone_number, verified_only=True)
+            if user:
+                # Account is locked check for existing users
+                if user_service.is_account_locked(user):
+                    raise HTTPException(
+                        status_code=423,
+                        detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+                    )
+                # Increment failed attempts for existing user (uses phone_number internally)
+                user_service.increment_failed_attempts(phone_number)
+            raise INVALID_VERIFICATION_CODE_RESPONSE
         
-        if user["is_verified"]:
-            raise HTTPException(
-                status_code=400,
-                detail="Phone number is already verified"
-            )
+        # Check if this is a signup (has password_hash) or SMS login (no password_hash)
+        is_signup = signup_data.get("password_hash") is not None
         
-        # Check if account is locked
-        if user_service.is_account_locked(user):
-            raise HTTPException(
-                status_code=423,
-                detail="Account is temporarily locked due to too many failed attempts. Please try again later."
-            )
-        
-        # Atomically verify code and mark as used
-        if not user_service.verify_and_mark_code_used(phone_number, request.code):
-            # Increment failed attempts
-            user_service.increment_failed_attempts(phone_number)
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired verification code"
-            )
+        if is_signup:
+            # Create new user account from signup data
+            try:
+                user_id = user_service.create_user(
+                    phone_number=phone_number,
+                    password_hash=signup_data["password_hash"],
+                    name=signup_data.get("name"),
+                    email=signup_data.get("email")
+                )
+                # Get the newly created user
+                user = user_service.get_user_by_id(user_id)
+            except ValueError as e:
+                # User already exists (race condition or duplicate signup)
+                raise HTTPException(
+                    status_code=400,
+                    detail=str(e)
+                )
+        else:
+            # SMS login - get existing user
+            user = user_service.get_user_by_phone(phone_number, verified_only=True)
+            if not user:
+                raise INVALID_CREDENTIALS_RESPONSE
+            # Check if account is locked
+            if user_service.is_account_locked(user):
+                raise HTTPException(
+                    status_code=423,
+                    detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+                )
         
         # Reset failed attempts on success
         user_service.reset_failed_attempts(user["id"])
-        
-        # Verify user
-        success = user_service.verify_user_phone(user["id"], phone_number)
-        if not success:
-            raise HTTPException(
-                status_code=500,
-                detail="Failed to verify user"
-            )
-        
-        # Get updated user
-        user = user_service.get_user_by_id(user["id"])
         
         # Create access token
         token_data = {
@@ -1062,9 +1129,212 @@ async def verify_phone(http_request: Request, request: VerifyPhoneRequest):
         raise HTTPException(status_code=500, detail=f"Error verifying phone: {str(e)}")
 
 
+@router.post("/api/auth/reset-password", response_model=Dict[str, Any])
+@limiter.limit("3/hour")
+async def reset_password(request: Request, payload: ResetPasswordRequest):
+    """
+    Initiate password reset by sending verification code.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567"
+        }
+    
+    Returns:
+        dict: Status message
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
+        
+        # Check if user exists
+        user = user_service.get_user_by_phone(phone_number, verified_only=True)
+        if not user:
+            # Don't reveal if phone exists for security
+            return {
+                "status": "success",
+                "message": "If an account exists with this phone number, a verification code has been sent."
+            }
+        
+        # Generate verification code
+        code = auth_service.generate_verification_code()
+        
+        # Save code to database (without signup data, just for password reset)
+        success = user_service.create_verification_code(phone_number, code)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create verification code"
+            )
+        
+        # Send SMS
+        # DISABLED FOR NOW
+        # sms_sent = auth_service.send_sms_verification(phone_number, code)
+        # if not sms_sent:
+        #     raise HTTPException(
+        #         status_code=500,
+        #         detail="Failed to send SMS. Please check Twilio configuration."
+        #     )
+        
+        return {
+            "status": "success",
+            "message": "If an account exists with this phone number, a verification code has been sent."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initiating password reset: {str(e)}")
+
+
+@router.post("/api/auth/reset-password-verify", response_model=Dict[str, Any])
+@limiter.limit("10/minute")
+async def reset_password_verify(request: Request, payload: ResetPasswordVerifyRequest):
+    """
+    Verify code for password reset and return a reset token.
+    
+    Request body:
+        {
+            "phone_number": "+15551234567",
+            "code": "123456"
+        }
+    
+    Returns:
+        dict: Reset token
+    """
+    try:
+        # Normalize phone number
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
+        
+        # Get user
+        user = user_service.get_user_by_phone(phone_number, verified_only=True)
+        if not user:
+            raise INVALID_CREDENTIALS_RESPONSE
+        
+        # Check if account is locked
+        if user_service.is_account_locked(user):
+            raise HTTPException(
+                status_code=423,
+                detail="Account is temporarily locked due to too many failed attempts. Please try again later."
+            )
+        
+        # Verify the code (for password reset, code won't have signup data, but function still returns dict if valid)
+        code_result = user_service.verify_and_mark_code_used(phone_number, payload.code)
+        if not code_result:
+            # Increment failed attempts
+            user_service.increment_failed_attempts(phone_number)
+            raise INVALID_VERIFICATION_CODE_RESPONSE
+        
+        # Reset failed attempts on success
+        user_service.reset_failed_attempts(user["id"])
+        
+        # Generate reset token
+        reset_token = auth_service.generate_refresh_token()  # Reuse the same secure token generator
+        expires_at = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
+        
+        # Store reset token
+        success = user_service.create_password_reset_token(user["id"], reset_token, expires_at)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create reset token"
+            )
+        
+        return {
+            "status": "success",
+            "reset_token": reset_token,
+            "message": "Verification code verified. You can now set your new password."
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error verifying reset code: {str(e)}")
+
+
+@router.post("/api/auth/reset-password-confirm", response_model=AuthResponse)
+@limiter.limit("10/minute")
+async def reset_password_confirm(request: Request, payload: ResetPasswordConfirmRequest):
+    """
+    Confirm password reset with token and set new password.
+    Automatically logs the user in after successful reset.
+    
+    Request body:
+        {
+            "reset_token": "token_from_verify_endpoint",
+            "new_password": "new_secure_password"
+        }
+    
+    Returns:
+        AuthResponse: JWT tokens and user info (user is automatically logged in)
+    """
+    try:
+        # Validate password strength
+        if len(payload.new_password) < 8:
+            raise HTTPException(
+                status_code=400,
+                detail="Password must be at least 8 characters long"
+            )
+        if not any(char.isdigit() for char in payload.new_password):
+            raise HTTPException(
+                status_code=400,
+                detail="Password must include at least one number"
+            )
+        
+        # Verify and use the reset token
+        user_id = user_service.verify_and_use_password_reset_token(payload.reset_token)
+        if not user_id:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid or expired reset token"
+            )
+        
+        # Get user to get phone number for token
+        user = user_service.get_user_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="User not found"
+            )
+        
+        # Hash new password
+        new_password_hash = auth_service.hash_password(payload.new_password)
+        
+        # Update password
+        success = user_service.update_user_password(user_id, new_password_hash)
+        if not success:
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to update password"
+            )
+        
+        # Create access token (automatically log them in)
+        token_data = {
+            "user_id": user["id"],
+            "phone_number": user["phone_number"]
+        }
+        access_token = auth_service.create_access_token(data=token_data)
+        
+        # Create refresh token
+        refresh_token = auth_service.generate_refresh_token()
+        expires_at = datetime.utcnow() + timedelta(days=auth_service.REFRESH_TOKEN_EXPIRATION_DAYS)
+        user_service.create_refresh_token(user["id"], refresh_token, expires_at)
+        
+        return AuthResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            token_type="bearer",
+            user_id=user["id"],
+            phone_number=user["phone_number"],
+            is_verified=user["is_verified"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error resetting password: {str(e)}")
+
+
 @router.post("/api/auth/sms-login", response_model=AuthResponse)
 @limiter.limit("10/minute")
-async def sms_login(http_request: Request, request: SMSLoginRequest):
+async def sms_login(request: Request, payload: SMSLoginRequest):
     """
     Passwordless login with SMS verification code.
     
@@ -1079,15 +1349,12 @@ async def sms_login(http_request: Request, request: SMSLoginRequest):
     """
     try:
         # Normalize phone number
-        phone_number = auth_service.normalize_phone_number(request.phone_number)
+        phone_number = auth_service.normalize_phone_number(payload.phone_number)
         
         # Get verified user
         user = user_service.get_verified_user_by_phone(phone_number)
         if not user:
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid credentials"
-            )
+            raise INVALID_CREDENTIALS_RESPONSE
         
         # Check if account is locked
         if user_service.is_account_locked(user):
@@ -1097,13 +1364,10 @@ async def sms_login(http_request: Request, request: SMSLoginRequest):
             )
         
         # Atomically verify code and mark as used
-        if not user_service.verify_and_mark_code_used(phone_number, request.code):
+        if not user_service.verify_and_mark_code_used(phone_number, payload.code):
             # Increment failed attempts
             user_service.increment_failed_attempts(phone_number)
-            raise HTTPException(
-                status_code=401,
-                detail="Invalid or expired verification code"
-            )
+            raise INVALID_VERIFICATION_CODE_RESPONSE
         
         # Reset failed attempts on success
         user_service.reset_failed_attempts(user["id"])

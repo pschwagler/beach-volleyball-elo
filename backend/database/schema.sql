@@ -92,24 +92,28 @@ CREATE TABLE IF NOT EXISTS settings (
 -- Users table: User accounts with phone-based authentication
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    phone_number TEXT NOT NULL,  -- E.164 format, NOT unique (allows multiple unverified)
-    password_hash TEXT,  -- nullable for passwordless users
+    phone_number TEXT NOT NULL UNIQUE,  -- E.164 format, UNIQUE (only verified users exist)
+    password_hash TEXT NOT NULL,  -- Required for all accounts
     name TEXT,
     email TEXT,
-    is_verified INTEGER NOT NULL DEFAULT 0,  -- 0 = unverified, 1 = verified
+    is_verified INTEGER NOT NULL DEFAULT 1,  -- Always 1 (accounts only created after verification)
     failed_verification_attempts INTEGER NOT NULL DEFAULT 0,  -- Track failed verification attempts
     locked_until TEXT,  -- ISO timestamp when account lock expires (NULL if not locked)
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Verification codes table: SMS verification codes
+-- Verification codes table: SMS verification codes with signup data
 CREATE TABLE IF NOT EXISTS verification_codes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone_number TEXT NOT NULL,
     code TEXT NOT NULL,  -- 6-digit code
     expires_at TEXT NOT NULL,
     used INTEGER NOT NULL DEFAULT 0,  -- 0 = unused, 1 = used
+    -- Signup data stored temporarily until verification
+    password_hash TEXT,  -- Hashed password from signup
+    name TEXT,  -- User name from signup
+    email TEXT,  -- User email from signup
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -119,6 +123,17 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
     user_id INTEGER NOT NULL,
     token TEXT NOT NULL UNIQUE,  -- The refresh token itself
     expires_at TEXT NOT NULL,  -- ISO timestamp when token expires
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Password reset tokens table: Tokens for password reset after verification
+CREATE TABLE IF NOT EXISTS password_reset_tokens (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    token TEXT NOT NULL UNIQUE,  -- The reset token itself
+    expires_at TEXT NOT NULL,  -- ISO timestamp when token expires (e.g., 1 hour)
+    used INTEGER NOT NULL DEFAULT 0,  -- 0 = unused, 1 = used
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
@@ -143,4 +158,7 @@ CREATE INDEX IF NOT EXISTS idx_verification_codes_expires ON verification_codes(
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_token ON password_reset_tokens(token);
+CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_expires ON password_reset_tokens(expires_at);
 

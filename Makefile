@@ -1,4 +1,23 @@
-.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install
+.PHONY: help install dev dev-basic dev-backend watch build start clean clean-venv test whatsapp whatsapp-install ensure-backend-port
+
+BACKEND_PORT ?= 8000
+BACKEND_HOST ?= 0.0.0.0
+BACKEND_APP ?= backend.api.main:app
+DEBUG_BACKEND ?= 0
+DEBUGPY_PORT ?= 5678
+
+ensure-backend-port:
+	@if lsof -ti tcp:$(BACKEND_PORT) >/dev/null; then \
+		echo "⚠️ Port $(BACKEND_PORT) is in use. Attempting to stop the previous backend..."; \
+		lsof -ti tcp:$(BACKEND_PORT) | xargs kill -TERM; \
+		sleep 1; \
+		if lsof -ti tcp:$(BACKEND_PORT) >/dev/null; then \
+			echo "Force killing remaining processes on port $(BACKEND_PORT)..."; \
+			lsof -ti tcp:$(BACKEND_PORT) | xargs kill -KILL; \
+			sleep 1; \
+		fi; \
+		echo "✅ Port $(BACKEND_PORT) is free."; \
+	fi
 
 help:
 	@echo "Beach Volleyball ELO - Available Commands:"
@@ -65,7 +84,7 @@ whatsapp-install:
 	cd whatsapp-service && npm install
 	@echo "✅ WhatsApp service dependencies installed!"
 
-dev:
+dev: ensure-backend-port
 	@echo "🚀 Starting ALL services (backend + frontend + WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "🎨 Frontend: auto-rebuilding on file changes"
@@ -79,9 +98,9 @@ dev:
 	@trap 'kill 0' EXIT; \
 	(cd whatsapp-service && npm start) & \
 	(cd frontend && npm run build -- --watch) & \
-	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
 
-dev-basic:
+dev-basic: ensure-backend-port
 	@echo "🚀 Starting backend + frontend watch (no WhatsApp)..."
 	@echo "📡 Backend: http://localhost:8000 (auto-reload)"
 	@echo "🎨 Frontend: auto-rebuilding on file changes"
@@ -90,12 +109,12 @@ dev-basic:
 	@echo ""
 	@trap 'kill 0' EXIT; \
 	(cd frontend && npm run build -- --watch) & \
-	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
 
-dev-backend:
+dev-backend: ensure-backend-port
 	@echo "Starting backend only with auto-reload..."
 	@echo "Visit: http://localhost:8000"
-	./venv/bin/uvicorn backend.api.main:app --reload --host 0.0.0.0 --port 8000
+	DEBUG_BACKEND=$(DEBUG_BACKEND) DEBUGPY_PORT=$(DEBUGPY_PORT) BACKEND_APP=$(BACKEND_APP) BACKEND_HOST=$(BACKEND_HOST) BACKEND_PORT=$(BACKEND_PORT) ./scripts/run_backend.sh
 
 watch:
 	@echo "Watching frontend files and rebuilding on changes..."
@@ -108,7 +127,7 @@ build:
 	cd frontend && npm run build
 	@echo "✅ Frontend built!"
 
-start: build
+start: ensure-backend-port build
 	@echo "Starting production server..."
 	./venv/bin/uvicorn backend.api.main:app --host 0.0.0.0 --port 8000
 

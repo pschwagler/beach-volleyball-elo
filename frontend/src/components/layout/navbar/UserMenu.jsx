@@ -3,6 +3,19 @@ import { User, LogIn, UserPlus, UserCircle, LogOut } from 'lucide-react';
 import NavDropdown from './NavDropdown';
 import NavDropdownItem from './NavDropdownItem';
 
+/**
+ * Gets the first letter for the avatar from name, email, or defaults to a user icon
+ */
+const getAvatarInitial = (user) => {
+  if (user?.name) {
+    return user.name.trim().charAt(0).toUpperCase();
+  }
+  if (user?.email) {
+    return user.email.trim().charAt(0).toUpperCase();
+  }
+  return null; // Will show default icon
+};
+
 export default function UserMenu({
   isLoggedIn,
   user,
@@ -42,6 +55,8 @@ export default function UserMenu({
     }
   };
 
+  const avatarInitial = isLoggedIn ? getAvatarInitial(user) : null;
+
   return (
     <div className="navbar-menu-group" ref={menuRef}>
       <button
@@ -49,25 +64,31 @@ export default function UserMenu({
         onClick={() => setIsOpen(!isOpen)}
         aria-label="User menu"
       >
-        <User size={20} />
-        <span className="navbar-menu-label">Account</span>
+        {isLoggedIn && avatarInitial ? (
+          <div className="navbar-avatar" aria-hidden="true">
+            {avatarInitial}
+          </div>
+        ) : (
+          <User size={20} />
+        )}
+        <span className="navbar-menu-label"></span>
       </button>
 
       {isOpen && (
         <NavDropdown className="navbar-dropdown-user">
           {!isLoggedIn ? (
             <>
+              <NavDropdownItem icon={LogIn} onClick={() => handleItemClick('sign-in')}>
+                Log In
+              </NavDropdownItem>
               <NavDropdownItem icon={UserPlus} onClick={() => handleItemClick('sign-up')}>
                 Sign Up
-              </NavDropdownItem>
-              <NavDropdownItem icon={LogIn} onClick={() => handleItemClick('sign-in')}>
-                Sign In
               </NavDropdownItem>
             </>
           ) : (
             <>
               <div className="navbar-dropdown-header">
-                Signed in as {user?.name || user?.phone_number || 'Member'}
+                {user?.name || user?.phone_number || 'Member'}
               </div>
               <NavDropdownItem icon={UserCircle} onClick={() => handleItemClick('profile')}>
                 My Profile

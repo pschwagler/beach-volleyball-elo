@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { X, CheckCircle, AlertCircle, MessageCircle } from 'lucide-react';
+import { X, CheckCircle, AlertCircle, MessageCircle, Check, X as XIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import PhoneInput from '../ui/PhoneInput';
 
 const MODE_TITLES = {
-  'sign-in': 'Sign In',
+  'sign-in': 'Log In',
   'sign-up': 'Create Account',
   'sms-login': 'SMS Login',
   verify: 'Verify Phone Number',
+  'reset-password': 'Send Code',
+  'reset-password-code': 'Continue',
+  'reset-password-new': 'Reset Password',
 };
 
 const defaultFormState = {
@@ -26,12 +30,21 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
     signup,
     sendVerificationCode,
     verifyPhone,
+    resetPassword,
+    verifyPasswordReset,
+    confirmPasswordReset,
   } = useAuth();
   const [activeMode, setActiveMode] = useState(mode);
   const [formData, setFormData] = useState(defaultFormState);
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPhoneValid, setIsPhoneValid] = useState(false);
+  const [passwordRequirements, setPasswordRequirements] = useState({
+    minLength: false,
+    hasNumber: false,
+  });
+  const [resetToken, setResetToken] = useState(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -50,7 +63,17 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
     setFormData(defaultFormState);
     setErrorMessage('');
     setStatusMessage('');
+    setIsPhoneValid(false);
+    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setResetToken(null);
     onClose?.();
+  };
+
+  const validatePassword = (password) => {
+    return {
+      minLength: password.length >= 8,
+      hasNumber: /\d/.test(password),
+    };
   };
 
   const handleInputChange = (event) => {
@@ -59,11 +82,43 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
       ...prev,
       [name]: value,
     }));
+
+    // Validate password in real-time if it's the password field
+    if (name === 'password' && (activeMode === 'sign-up' || activeMode === 'reset-password-new')) {
+      setPasswordRequirements(validatePassword(value));
+    }
+  };
+
+  const handlePhoneChange = (value) => {
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumber: value,
+    }));
+  };
+
+  const handlePhoneValidation = ({ isValid, value }) => {
+    setIsPhoneValid(isValid);
+    if (isValid && value) {
+      setFormData((prev) => ({
+        ...prev,
+        phoneNumber: value,
+      }));
+    }
+  };
+
+  const handleSwitchMode = (newMode) => {
+    setActiveMode(newMode);
+    setErrorMessage('');
+    setStatusMessage('');
+    setFormData(defaultFormState);
+    setIsPhoneValid(false);
+    setPasswordRequirements({ minLength: false, hasNumber: false });
+    setResetToken(null);
   };
 
   const handleSendVerification = async () => {
-    if (!formData.phoneNumber) {
-      setErrorMessage('Phone number is required');
+    if (!isPhoneValid || !formData.phoneNumber) {
+      setErrorMessage('Please enter a valid phone number');
       return;
     }
 
@@ -84,6 +139,22 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
     event.preventDefault();
     setErrorMessage('');
     setStatusMessage('');
+
+    // Validate phone number if required (not needed for reset-password-new as it's already verified)
+    if ((activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'sms-login' || activeMode === 'verify' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && !isPhoneValid) {
+      setErrorMessage('Please enter a valid phone number');
+      return;
+    }
+
+    // Validate password strength for sign-up
+    if (activeMode === 'sign-up') {
+      const passwordValid = validatePassword(formData.password);
+      if (!passwordValid.minLength || !passwordValid.hasNumber) {
+        setErrorMessage('Password must be at least 8 characters long and include a number');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -118,6 +189,45 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
       if (activeMode === 'verify') {
         await verifyPhone(formData.phoneNumber, formData.code);
         handleClose();
+        return;
+      }
+
+      if (activeMode === 'reset-password') {
+        await resetPassword(formData.phoneNumber);
+        setStatusMessage('Verification code sent! Please check your SMS messages.');
+        setActiveMode('reset-password-code');
+        return;
+      }
+
+      if (activeMode === 'reset-password-code') {
+        // Verify code and get reset token
+        if (!formData.code || formData.code.length !== 6) {
+          setErrorMessage('Please enter a valid 6-digit verification code');
+          return;
+        }
+        const result = await verifyPasswordReset(formData.phoneNumber, formData.code);
+        setResetToken(result.reset_token);
+        setActiveMode('reset-password-new');
+        setErrorMessage('');
+        setStatusMessage('');
+        return;
+      }
+
+      if (activeMode === 'reset-password-new') {
+        // Validate password strength
+        const passwordValid = validatePassword(formData.password);
+        if (!passwordValid.minLength || !passwordValid.hasNumber) {
+          setErrorMessage('Password must be at least 8 characters long and include a number');
+          return;
+        }
+        if (!resetToken) {
+          setErrorMessage('Reset token is missing. Please start over.');
+          return;
+        }
+        // This will automatically log the user in
+        await confirmPasswordReset(resetToken, formData.password);
+        handleClose();
+        return;
       }
     } catch (error) {
       setErrorMessage(getErrorMessage(error));
@@ -131,11 +241,17 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
       case 'sign-up':
         return 'Create an account to record matches, manage sessions, and send WhatsApp updates.';
       case 'sms-login':
-        return 'Enter your phone number and the 6-digit code we send via SMS.';
+        return 'Enter your phone number and the code we send via SMS.';
       case 'verify':
-        return 'Enter the 6-digit verification code we sent to your phone to complete signup.';
+        return 'Enter the verification code we sent to your phone to complete signup.';
+      case 'reset-password':
+        return 'Enter your phone number to receive a verification code for password reset.';
+      case 'reset-password-code':
+        return 'Enter the verification code we sent to your phone.';
+      case 'reset-password-new':
+        return 'Enter your new password.';
       default:
-        return 'Sign in to manage sessions, record matches, and sync WhatsApp updates.';
+        return 'Sign in to access leagues, record matches, and more.';
     }
   };
 
@@ -144,7 +260,7 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
       <div className="auth-modal">
         <div className="auth-modal__header">
           <div>
-            <p className="auth-modal__eyebrow">Beach Volleyball Accounts</p>
+            {/* <p className="auth-modal__eyebrow">Beach Volleyball Accounts</p> */}
             <h2>{MODE_TITLES[activeMode]}</h2>
           </div>
           <button className="auth-modal__close" onClick={handleClose} aria-label="Close authentication modal">
@@ -162,31 +278,82 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
         )}
 
         <form className="auth-modal__form" onSubmit={handleSubmit}>
-          <label className="auth-modal__label">
-            Phone Number
-            <input
-              type="tel"
-              name="phoneNumber"
-              className="auth-modal__input"
-              placeholder="+15551234567"
-              value={formData.phoneNumber}
-              onChange={handleInputChange}
-              required
-            />
-          </label>
+          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password' || activeMode === 'reset-password-code') && (
+            <label className="auth-modal__label">
+              Phone Number
+              <PhoneInput
+                value={formData.phoneNumber}
+                onChange={handlePhoneChange}
+                onValidationChange={handlePhoneValidation}
+                required
+                placeholder="(555) 123-4567"
+              />
+            </label>
+          )}
 
-          {(activeMode === 'sign-in' || activeMode === 'sign-up') && (
+          {activeMode === 'reset-password-new' && (
+            <label className="auth-modal__label">
+              Phone Number
+              <input
+                type="tel"
+                className="auth-modal__input"
+                value={formData.phoneNumber}
+                disabled
+                style={{ opacity: 0.6, cursor: 'not-allowed' }}
+              />
+            </label>
+          )}
+
+          {(activeMode === 'sign-in' || activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
             <label className="auth-modal__label">
               Password
               <input
                 type="password"
                 name="password"
                 className="auth-modal__input"
-                placeholder="••••••••"
+                placeholder=""
                 value={formData.password}
                 onChange={handleInputChange}
-                required={activeMode === 'sign-in'}
+                required
               />
+              {(activeMode === 'sign-up' || activeMode === 'reset-password-new') && (
+                <div className="auth-modal__password-requirements">
+                  <div className={`auth-modal__requirement ${passwordRequirements.minLength ? 'valid' : ''}`}>
+                    {passwordRequirements.minLength ? (
+                      <Check size={14} className="auth-modal__requirement-icon" />
+                    ) : (
+                      <XIcon size={14} className="auth-modal__requirement-icon" />
+                    )}
+                    <span>At least 8 characters</span>
+                  </div>
+                  <div className={`auth-modal__requirement ${passwordRequirements.hasNumber ? 'valid' : ''}`}>
+                    {passwordRequirements.hasNumber ? (
+                      <Check size={14} className="auth-modal__requirement-icon" />
+                    ) : (
+                      <XIcon size={14} className="auth-modal__requirement-icon" />
+                    )}
+                    <span>Includes a number</span>
+                  </div>
+                </div>
+              )}
+            </label>
+          )}
+
+          {activeMode === 'reset-password-code' && (
+            <label className="auth-modal__label">
+              Verification Code
+              <div className="auth-modal__code-row">
+                <input
+                  type="text"
+                  name="code"
+                  className="auth-modal__input"
+                  placeholder="123456"
+                  value={formData.code}
+                  onChange={handleInputChange}
+                  maxLength={6}
+                  required
+                />
+              </div>
             </label>
           )}
 
@@ -248,6 +415,40 @@ export default function AuthModal({ isOpen, mode = 'sign-in', onClose }) {
             {isSubmitting ? 'Please wait...' : MODE_TITLES[activeMode]}
           </button>
         </form>
+
+          {activeMode === 'sign-in' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Don't have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-up')}
+              >
+                Sign up
+              </button>
+              <span className="auth-modal__footer-text" style={{ marginLeft: '12px' }}>• </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('reset-password')}
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
+
+          {activeMode === 'sign-up' && (
+            <div className="auth-modal__footer">
+              <span className="auth-modal__footer-text">Already have an account? </span>
+              <button
+                type="button"
+                className="auth-modal__footer-link"
+                onClick={() => handleSwitchMode('sign-in')}
+              >
+                Log in
+              </button>
+            </div>
+          )}
       </div>
     </div>
   );

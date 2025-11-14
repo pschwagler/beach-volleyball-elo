@@ -4,6 +4,7 @@ Beach Volleyball ELO API Server
 FastAPI server that provides REST endpoints for ELO calculations and statistics.
 """
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, FileResponse
@@ -15,16 +16,49 @@ from slowapi.errors import RateLimitExceeded  # type: ignore
 
 from backend.api.routes import router, limiter as routes_limiter
 from backend.database import db
+from backend.database.migrate_add_sessions import migrate as migrate_sessions
+from backend.database.migrate_rename_is_active import migrate as migrate_rename_is_active
+from backend.database.migrate_add_users import migrate as migrate_users
 from backend.services import data_service, sheets_service, calculation_service
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler for startup and shutdown events."""
+    # Startup
+    logger.info("Starting up Beach Volleyball ELO API...")
+    
+    # Run database migrations first (in order)
+    try:
+        logger.info("Running database migrations...")
+        migrate_sessions()
+        migrate_rename_is_active()
+        migrate_users()
+        logger.info("✓ All migrations completed")
+    except Exception as e:
+        logger.error(f"Migration failed: {e}", exc_info=True)
+        # Don't raise - allow app to start even if migrations fail
+        # (useful for development, but you might want to raise in production)
+    
+    # Initialize database (create tables if they don't exist)
+    db.init_database()
+    logger.info("Database initialized")
+
+    yield  # App is running
+    
+    # Shutdown (if needed)
+    logger.info("Shutting down Beach Volleyball ELO API...")
+
+
 app = FastAPI(
     title="Beach Volleyball ELO API",
     description="API for calculating and retrieving beach volleyball ELO ratings and statistics",
-    version="2.0.0"
+    version="2.0.0",
+    lifespan=lifespan
 )
 
 # Setup rate limiter
@@ -42,28 +76,6 @@ app.add_middleware(
 
 # Include API routes
 app.include_router(router)
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize database and auto-populate if empty."""
-    logger.info("Starting up Beach Volleyball ELO API...")
-    
-    # Initialize database (create tables if they don't exist)
-    db.init_database()
-    logger.info("Database initialized")
-    
-    # Auto-populate if database is empty
-    if data_service.is_database_empty():
-        logger.info("Database is empty, auto-populating from Google Sheets...")
-        try:
-            match_list = sheets_service.load_matches_from_sheets()
-            tracker = calculation_service.process_matches(match_list)
-            data_service.flush_and_repopulate(tracker, match_list)
-            logger.info(f"Auto-populated with {len(tracker.players)} players and {len(match_list)} matches")
-        except Exception as e:
-            logger.error(f"Failed to auto-populate database: {str(e)}")
-            logger.warning("API will start without data. Use /api/calculate to populate manually.")
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -3,7 +3,7 @@ Pydantic models for API request/response validation.
 """
 
 from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, model_validator
 
 
 class RankingResponse(BaseModel):
@@ -139,15 +139,25 @@ class CreateMatchResponse(BaseModel):
 class SignupRequest(BaseModel):
     """Request to sign up a new user."""
     phone_number: str
-    password: Optional[str] = None
+    password: str
     name: Optional[str] = None
     email: Optional[str] = None
 
 
 class LoginRequest(BaseModel):
-    """Request to login with password."""
-    phone_number: str
+    """Request to login with password. Accepts either phone_number or email."""
+    phone_number: Optional[str] = None
+    email: Optional[str] = None
     password: str
+    
+    @model_validator(mode='after')
+    def validate_phone_or_email(self):
+        """Ensure either phone_number or email is provided."""
+        if not self.phone_number and not self.email:
+            raise ValueError("Either phone_number or email must be provided")
+        if self.phone_number and self.email:
+            raise ValueError("Provide either phone_number or email, not both")
+        return self
 
 
 class SMSLoginRequest(BaseModel):
@@ -192,6 +202,23 @@ class CheckPhoneResponse(BaseModel):
     """Response for phone number check."""
     exists: bool
     is_verified: bool
+
+
+class ResetPasswordRequest(BaseModel):
+    """Request to initiate password reset."""
+    phone_number: str
+
+
+class ResetPasswordVerifyRequest(BaseModel):
+    """Request to verify code and get reset token."""
+    phone_number: str
+    code: str
+
+
+class ResetPasswordConfirmRequest(BaseModel):
+    """Request to confirm password reset with token and new password."""
+    reset_token: str
+    new_password: str
 
 
 class UserResponse(BaseModel):

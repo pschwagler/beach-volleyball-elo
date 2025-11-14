@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
   const signup = useCallback(async ({ phoneNumber, password, name, email }) => {
     const response = await api.post('/api/auth/signup', {
       phone_number: normalizePhone(phoneNumber),
-      password: password?.trim() || undefined,
+      password: password.trim(),
       name: name?.trim() || undefined,
       email: email?.trim() || undefined,
     });
@@ -87,6 +87,31 @@ export const AuthProvider = ({ children }) => {
     [handleAuthSuccess]
   );
 
+  const resetPassword = useCallback(async (phoneNumber) => {
+    const response = await api.post('/api/auth/reset-password', {
+      phone_number: normalizePhone(phoneNumber),
+    });
+    return response.data;
+  }, []);
+
+  const verifyPasswordReset = useCallback(async (phoneNumber, code) => {
+    const response = await api.post('/api/auth/reset-password-verify', {
+      phone_number: normalizePhone(phoneNumber),
+      code,
+    });
+    return response.data;
+  }, []);
+
+  const confirmPasswordReset = useCallback(async (resetToken, newPassword) => {
+    const response = await api.post('/api/auth/reset-password-confirm', {
+      reset_token: resetToken,
+      new_password: newPassword.trim(),
+    });
+    // Password reset returns auth tokens, so log the user in automatically
+    await handleAuthSuccess(response.data);
+    return response.data;
+  }, [handleAuthSuccess]);
+
   const logout = useCallback(() => {
     clearAuthTokens();
     setUser(null);
@@ -101,6 +126,9 @@ export const AuthProvider = ({ children }) => {
     signup,
     sendVerificationCode,
     verifyPhone,
+    resetPassword,
+    verifyPasswordReset,
+    confirmPasswordReset,
     logout,
   };
 

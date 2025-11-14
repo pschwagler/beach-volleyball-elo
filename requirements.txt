@@ -12,3 +12,4 @@ twilio>=8.10.0
 python-dotenv>=1.0.0
 phonenumbers>=8.13.0
 slowapi>=0.1.9
+debugpy>=1.8.5

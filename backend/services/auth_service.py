@@ -6,6 +6,7 @@ import bcrypt
 import os
 import random
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
@@ -180,6 +181,48 @@ def validate_phone_number(phone: str, default_region: str = "US") -> bool:
         return phonenumbers.is_valid_number(parsed_number)
     except (NumberParseException, ValueError):
         return False
+
+
+def validate_email(email: str) -> bool:
+    """
+    Validate if an email address is valid.
+    
+    Args:
+        email: Email address to validate
+        
+    Returns:
+        True if email is valid, False otherwise
+    """
+    if not email:
+        return False
+    
+    # Basic email regex pattern
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return bool(re.match(pattern, email))
+
+
+def normalize_email(email: str) -> str:
+    """
+    Normalize email address (lowercase and strip whitespace).
+    
+    Args:
+        email: Email address to normalize
+        
+    Returns:
+        Normalized email address in lowercase
+        
+    Raises:
+        ValueError: If email is invalid
+    """
+    if not email:
+        raise ValueError("Email cannot be empty")
+    
+    email = email.strip().lower()
+    
+    if not validate_email(email):
+        raise ValueError(f"Invalid email address: {email}")
+    
+    return email
 
 
 def send_sms_verification(phone_number: str, code: str) -> bool:

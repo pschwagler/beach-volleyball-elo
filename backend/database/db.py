@@ -11,9 +11,19 @@ DB_PATH = Path(__file__).parent / "volleyball.db"
 
 
 def get_connection():
-    """Get a database connection."""
-    conn = sqlite3.connect(DB_PATH)
+    """Get a database connection with timeout and WAL mode for better concurrency."""
+    # Set timeout to 30 seconds to handle concurrent access better
+    conn = sqlite3.connect(DB_PATH, timeout=30.0)
     conn.row_factory = sqlite3.Row  # Enable column access by name
+    
+    # Enable WAL mode for better concurrency (allows multiple readers and one writer)
+    # This significantly improves performance and reduces lock contention
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError:
+        # WAL mode might not be available in some configurations, continue without it
+        pass
+    
     return conn
 
 

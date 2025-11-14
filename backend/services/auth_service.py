@@ -20,9 +20,15 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 # JWT Configuration
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    raise ValueError(
+        "JWT_SECRET_KEY environment variable must be set. "
+        "Generate a secure random key with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+    )
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
-JWT_EXPIRATION_HOURS = int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
+JWT_EXPIRATION_MINUTES = int(os.getenv("JWT_EXPIRATION_MINUTES", "15"))  # Access token: 15 minutes
+REFRESH_TOKEN_EXPIRATION_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRATION_DAYS", "7"))  # Refresh token: 7 days
 
 # Twilio Configuration
 TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
@@ -73,7 +79,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     
     Args:
         data: Dictionary containing user data (e.g., user_id, phone_number)
-        expires_delta: Optional expiration time delta. Defaults to JWT_EXPIRATION_HOURS
+        expires_delta: Optional expiration time delta. Defaults to JWT_EXPIRATION_MINUTES
         
     Returns:
         Encoded JWT token string
@@ -83,11 +89,22 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+        expire = datetime.utcnow() + timedelta(minutes=JWT_EXPIRATION_MINUTES)
     
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
     return encoded_jwt
+
+
+def generate_refresh_token() -> str:
+    """
+    Generate a secure random refresh token.
+    
+    Returns:
+        Random token string suitable for use as refresh token
+    """
+    import secrets
+    return secrets.token_urlsafe(32)
 
 
 def verify_token(token: str) -> Optional[dict]:

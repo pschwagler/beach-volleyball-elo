@@ -77,6 +77,7 @@ def get_user_by_phone(phone_number: str, verified_only: bool = False) -> Optiona
         if verified_only:
             cursor = conn.execute(
                 """SELECT id, phone_number, password_hash, name, email, is_verified, 
+                          failed_verification_attempts, locked_until,
                           created_at, updated_at
                    FROM users 
                    WHERE phone_number = ? AND is_verified = 1
@@ -87,6 +88,7 @@ def get_user_by_phone(phone_number: str, verified_only: bool = False) -> Optiona
         else:
             cursor = conn.execute(
                 """SELECT id, phone_number, password_hash, name, email, is_verified, 
+                          failed_verification_attempts, locked_until,
                           created_at, updated_at
                    FROM users 
                    WHERE phone_number = ?
@@ -104,6 +106,8 @@ def get_user_by_phone(phone_number: str, verified_only: bool = False) -> Optiona
                 "name": row["name"],
                 "email": row["email"],
                 "is_verified": bool(row["is_verified"]),
+                "failed_verification_attempts": row.get("failed_verification_attempts", 0) or 0,
+                "locked_until": row.get("locked_until"),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"]
             }
@@ -136,6 +140,7 @@ def get_user_by_id(user_id: int) -> Optional[Dict]:
     with db.get_db() as conn:
         cursor = conn.execute(
             """SELECT id, phone_number, password_hash, name, email, is_verified, 
+                      failed_verification_attempts, locked_until,
                       created_at, updated_at
                FROM users 
                WHERE id = ?""",
@@ -151,6 +156,8 @@ def get_user_by_id(user_id: int) -> Optional[Dict]:
                 "name": row["name"],
                 "email": row["email"],
                 "is_verified": bool(row["is_verified"]),
+                "failed_verification_attempts": row.get("failed_verification_attempts", 0) or 0,
+                "locked_until": row.get("locked_until"),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"]
             }
@@ -237,6 +244,9 @@ def create_verification_code(phone_number: str, code: str, expires_in_minutes: i
     """
     Create a verification code record.
     
+    Ensures only one active code exists per phone number by deleting
+    any existing unused codes before creating a new one.
+    
     Args:
         phone_number: Phone number in E.164 format
         code: Verification code
@@ -250,9 +260,9 @@ def create_verification_code(phone_number: str, code: str, expires_in_minutes: i
         expires_at_str = expires_at.isoformat()
         
         with db.get_db() as conn:
-            # Invalidate any existing unused codes for this phone
+            # Delete any existing unused codes for this phone (ensures only 1 active code)
             conn.execute(
-                "UPDATE verification_codes SET used = 1 WHERE phone_number = ? AND used = 0",
+                "DELETE FROM verification_codes WHERE phone_number = ? AND used = 0",
                 (phone_number,)
             )
             
@@ -269,59 +279,250 @@ def create_verification_code(phone_number: str, code: str, expires_in_minutes: i
         return False
 
 
-def verify_code(phone_number: str, code: str) -> bool:
+def verify_and_mark_code_used(phone_number: str, code: str) -> bool:
     """
-    Verify a code for a phone number.
+    Atomically verify a code and mark it as used.
     
-    Checks if the code exists, is not expired, and hasn't been used.
+    This prevents race conditions where the same code could be verified twice.
+    Only marks as used if the code is valid and not expired.
     
     Args:
         phone_number: Phone number in E.164 format
         code: Verification code
         
     Returns:
-        True if code is valid, False otherwise
+        True if code was valid and marked as used, False otherwise
     """
     with db.get_db() as conn:
+        # Atomically verify and mark as used in one operation
+        # Only updates if code matches, is unused, and not expired
         cursor = conn.execute(
-            """SELECT id, expires_at, used
-               FROM verification_codes
-               WHERE phone_number = ? AND code = ? AND used = 0
-               ORDER BY created_at DESC
-               LIMIT 1""",
+            """UPDATE verification_codes
+               SET used = 1
+               WHERE phone_number = ? 
+                 AND code = ? 
+                 AND used = 0
+                 AND expires_at > datetime('now')""",
             (phone_number, code)
         )
+        return cursor.rowcount > 0
+
+
+# Account locking configuration
+MAX_FAILED_ATTEMPTS = 5
+LOCK_DURATION_MINUTES = 15
+
+
+def is_account_locked(user: Dict) -> bool:
+    """
+    Check if a user account is currently locked.
+    
+    Args:
+        user: User dictionary with locked_until field
         
+    Returns:
+        True if account is locked, False otherwise
+    """
+    if not user.get("locked_until"):
+        return False
+    
+    locked_until = datetime.fromisoformat(user["locked_until"])
+    if datetime.utcnow() < locked_until:
+        return True
+    
+    # Lock has expired, clear it
+    clear_account_lock(user["id"])
+    return False
+
+
+def increment_failed_attempts(phone_number: str) -> bool:
+    """
+    Increment failed verification attempts for a user.
+    Locks the account if MAX_FAILED_ATTEMPTS is reached.
+    
+    Args:
+        phone_number: Phone number in E.164 format
+        
+    Returns:
+        True if account was locked, False otherwise
+    """
+    with db.get_db() as conn:
+        # Get current attempts
+        cursor = conn.execute(
+            """SELECT id, failed_verification_attempts
+               FROM users
+               WHERE phone_number = ?
+               ORDER BY is_verified DESC, created_at DESC
+               LIMIT 1""",
+            (phone_number,)
+        )
         row = cursor.fetchone()
         if not row:
             return False
         
-        # Check expiration
-        expires_at = datetime.fromisoformat(row["expires_at"])
-        if datetime.utcnow() > expires_at:
-            return False
+        user_id = row["id"]
+        current_attempts = row.get("failed_verification_attempts", 0) or 0
+        new_attempts = current_attempts + 1
         
-        return True
+        # Update attempts
+        if new_attempts >= MAX_FAILED_ATTEMPTS:
+            # Lock the account
+            locked_until = datetime.utcnow() + timedelta(minutes=LOCK_DURATION_MINUTES)
+            locked_until_str = locked_until.isoformat()
+            conn.execute(
+                """UPDATE users
+                   SET failed_verification_attempts = ?,
+                       locked_until = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (new_attempts, locked_until_str, user_id)
+            )
+            logger.warning(f"Account locked for phone {phone_number} after {new_attempts} failed attempts")
+            return True
+        else:
+            # Just increment attempts
+            conn.execute(
+                """UPDATE users
+                   SET failed_verification_attempts = ?,
+                       updated_at = CURRENT_TIMESTAMP
+                   WHERE id = ?""",
+                (new_attempts, user_id)
+            )
+            return False
 
 
-def mark_code_used(phone_number: str, code: str) -> bool:
+def reset_failed_attempts(user_id: int):
     """
-    Mark a verification code as used.
+    Reset failed verification attempts for a user (on successful verification).
     
     Args:
-        phone_number: Phone number in E.164 format
-        code: Verification code
+        user_id: User ID
+    """
+    with db.get_db() as conn:
+        conn.execute(
+            """UPDATE users
+               SET failed_verification_attempts = 0,
+                   locked_until = NULL,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE id = ?""",
+            (user_id,)
+        )
+
+
+def clear_account_lock(user_id: int):
+    """
+    Clear an expired account lock.
+    
+    Args:
+        user_id: User ID
+    """
+    with db.get_db() as conn:
+        conn.execute(
+            """UPDATE users
+               SET locked_until = NULL,
+                   updated_at = CURRENT_TIMESTAMP
+               WHERE id = ? AND locked_until < datetime('now')""",
+            (user_id,)
+        )
+
+
+# Refresh token functions
+
+def create_refresh_token(user_id: int, token: str, expires_at: datetime) -> bool:
+    """
+    Create a refresh token record.
+    
+    Args:
+        user_id: User ID
+        token: Refresh token string
+        expires_at: Expiration datetime
         
     Returns:
-        True if code was marked as used, False otherwise
+        True if successful, False otherwise
+    """
+    try:
+        expires_at_str = expires_at.isoformat()
+        with db.get_db() as conn:
+            # Delete old refresh tokens for this user (single active token per user)
+            conn.execute(
+                "DELETE FROM refresh_tokens WHERE user_id = ?",
+                (user_id,)
+            )
+            
+            # Create new refresh token
+            conn.execute(
+                """INSERT INTO refresh_tokens (user_id, token, expires_at)
+                   VALUES (?, ?, ?)""",
+                (user_id, token, expires_at_str)
+            )
+            return True
+    except Exception as e:
+        logger.error(f"Error creating refresh token: {str(e)}")
+        return False
+
+
+def get_refresh_token(token: str) -> Optional[Dict]:
+    """
+    Get refresh token record by token string.
+    
+    Args:
+        token: Refresh token string
+        
+    Returns:
+        Refresh token dictionary with user_id and expires_at, or None if not found
     """
     with db.get_db() as conn:
         cursor = conn.execute(
-            """UPDATE verification_codes
-               SET used = 1
-               WHERE phone_number = ? AND code = ? AND used = 0""",
-            (phone_number, code)
+            """SELECT id, user_id, token, expires_at, created_at
+               FROM refresh_tokens
+               WHERE token = ?""",
+            (token,)
+        )
+        row = cursor.fetchone()
+        if row:
+            return {
+                "id": row["id"],
+                "user_id": row["user_id"],
+                "token": row["token"],
+                "expires_at": row["expires_at"],
+                "created_at": row["created_at"]
+            }
+        return None
+
+
+def delete_refresh_token(token: str) -> bool:
+    """
+    Delete a refresh token (on logout or token rotation).
+    
+    Args:
+        token: Refresh token string
+        
+    Returns:
+        True if token was deleted, False otherwise
+    """
+    with db.get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM refresh_tokens WHERE token = ?",
+            (token,)
         )
         return cursor.rowcount > 0
+
+
+def delete_user_refresh_tokens(user_id: int) -> int:
+    """
+    Delete all refresh tokens for a user.
+    
+    Args:
+        user_id: User ID
+        
+    Returns:
+        Number of tokens deleted
+    """
+    with db.get_db() as conn:
+        cursor = conn.execute(
+            "DELETE FROM refresh_tokens WHERE user_id = ?",
+            (user_id,)
+        )
+        return cursor.rowcount
 
 

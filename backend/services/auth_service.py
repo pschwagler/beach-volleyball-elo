@@ -4,7 +4,6 @@ Authentication service for password hashing, JWT tokens, and SMS verification.
 
 import bcrypt
 import os
-import re
 import random
 import logging
 from datetime import datetime, timedelta
@@ -12,6 +11,8 @@ from typing import Optional
 from jose import JWTError, jwt
 from twilio.rest import Client
 from dotenv import load_dotenv
+import phonenumbers
+from phonenumbers import NumberParseException, PhoneNumberFormat
 
 # Load environment variables
 load_dotenv()
@@ -117,27 +118,51 @@ def generate_verification_code() -> str:
     return str(random.randint(100000, 999999))
 
 
-def normalize_phone_number(phone: str) -> str:
+def normalize_phone_number(phone: str, default_region: str = "US") -> str:
     """
-    Normalize phone number to E.164 format.
+    Normalize phone number to E.164 format using phonenumbers library.
     
     Args:
         phone: Phone number in various formats
+        default_region: Default region code if number doesn't have country code (default: "US")
         
     Returns:
         Phone number in E.164 format (e.g., +15551234567)
+        
+    Raises:
+        ValueError: If phone number cannot be parsed or is invalid
     """
-    # Remove all non-digit characters except +
-    cleaned = re.sub(r'[^\d+]', '', phone)
+    try:
+        # Parse the phone number
+        parsed_number = phonenumbers.parse(phone, default_region)
+        
+        # Validate the number
+        if not phonenumbers.is_valid_number(parsed_number):
+            raise ValueError(f"Invalid phone number: {phone}")
+        
+        # Format to E.164
+        return phonenumbers.format_number(parsed_number, PhoneNumberFormat.E164)
+        
+    except NumberParseException as e:
+        raise ValueError(f"Could not parse phone number '{phone}': {str(e)}")
+
+
+def validate_phone_number(phone: str, default_region: str = "US") -> bool:
+    """
+    Validate if a phone number is valid.
     
-    # If it doesn't start with +, assume US number and add +1
-    if not cleaned.startswith('+'):
-        # Remove leading 1 if present
-        if cleaned.startswith('1') and len(cleaned) == 11:
-            cleaned = cleaned[1:]
-        cleaned = '+1' + cleaned
-    
-    return cleaned
+    Args:
+        phone: Phone number to validate
+        default_region: Default region code if number doesn't have country code (default: "US")
+        
+    Returns:
+        True if phone number is valid, False otherwise
+    """
+    try:
+        parsed_number = phonenumbers.parse(phone, default_region)
+        return phonenumbers.is_valid_number(parsed_number)
+    except (NumberParseException, ValueError):
+        return False
 
 
 def send_sms_verification(phone_number: str, code: str) -> bool:
